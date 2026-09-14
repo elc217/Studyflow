@@ -19,6 +19,7 @@
         <div class="brand-mark">S</div>
         <p class="eyebrow">StudyFlow</p>
         <h1>Tu agenda, sincronizada</h1>
+        <p class="auth-byline">Creada por Luis Enrique Algueró Martín</p>
         <p class="auth-copy">Crea una cuenta o inicia sesión para acceder a tu planificación desde cualquier dispositivo.</p>
         <form id="authForm" class="auth-form">
           <div class="field-group">
@@ -50,6 +51,8 @@
           <button class="nav-item" data-filter="today">Hoy</button>
           <button class="nav-item" data-filter="upcoming">Próximas</button>
           <button class="nav-item" data-filter="done">Completadas</button>
+          <button id="manualButton" class="nav-item" type="button">Manual de uso</button>
+          <button id="adminButton" class="nav-item admin-nav-item" type="button" hidden>Administración</button>
         </nav>
 
         <div class="focus-card">
@@ -281,7 +284,57 @@
           </div>
         </section>
       </main>
+      <footer class="site-footer">
+        <span>StudyFlow · Creada por Luis Enrique Algueró Martín</span>
+        <a href="mailto:luisalguero74@gmail.com">luisalguero74@gmail.com</a>
+        <span>© 2026 Todos los derechos reservados</span>
+      </footer>
     </div>
+
+    <section id="manualPanel" class="modal-panel" hidden>
+      <div class="modal-card manual-card">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">Ayuda</p>
+            <h2>Manual de StudyFlow</h2>
+          </div>
+          <button class="ghost-btn small" data-close-modal="manualPanel" type="button">Cerrar</button>
+        </div>
+        <div class="manual-content">
+          <h3>1. Planificar</h3>
+          <p>Usa <strong>+ Nueva tarea</strong> para crear un bloque manual. Puedes editarlo o eliminarlo desde <strong>Editar calendario</strong>.</p>
+          <h3>2. Subir una planificación</h3>
+          <p>Selecciona un fichero Markdown, TXT, DOCX o PDF en <strong>Importar plan</strong>. También puedes pegar su contenido y pulsar <strong>Importar planificación</strong>.</p>
+          <h3>3. Formato recomendado</h3>
+          <pre>| Día | Enfoque Teórico | Práctica Test | Supuestos / Casos | Repaso Espaciado |
+| :--- | :--- | :--- | :--- | :--- |
+| **Mar 15 Sep** | Tema 1 | Test 50 preguntas | Caso práctico | Flashcards |</pre>
+          <p>Cada fila crea cuatro bloques: teoría (3 h 30 min), test (1 h 30 min), supuestos (1 h 30 min) y repaso (1 h 30 min).</p>
+          <h3>4. Seguimiento</h3>
+          <p>Registra tus tests y errores. Las señales de color priorizan los repasos según fallos, dificultad y repetición.</p>
+          <h3>5. Sincronización</h3>
+          <p>Tu cuenta guarda tareas, tests y notas en Supabase. Cada usuario solo puede acceder a sus propios datos.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="adminPanel" class="modal-panel" hidden>
+      <div class="modal-card admin-card">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">Control privado</p>
+            <h2>Administración</h2>
+          </div>
+          <button class="ghost-btn small" data-close-modal="adminPanel" type="button">Cerrar</button>
+        </div>
+        <div class="admin-grid">
+          <article class="admin-stat"><span>Usuarios</span><strong id="adminUserCount">--</strong></article>
+          <article class="admin-stat"><span>Actividad registrada</span><strong id="adminActivityCount">--</strong></article>
+          <article class="admin-stat"><span>Modelo de pago</span><strong>Preparado</strong></article>
+        </div>
+        <p id="adminMessage" class="auth-message">El control de usuarios y pagos se ejecutará mediante funciones seguras de Supabase.</p>
+      </div>
+    </section>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>

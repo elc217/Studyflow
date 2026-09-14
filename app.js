@@ -8,6 +8,7 @@ const SUPABASE_URL = 'https://ymlinhhriprtyhaamsrz.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_i4lrF89M1YcyFmkjY9s_JA_zLA7MMOC';
 const supabaseClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 let currentUser = null;
+let currentProfile = null;
 
 function formatDate(date) {
   const year = date.getFullYear();
@@ -144,6 +145,12 @@ const refs = {
   authMessage: document.querySelector('#authMessage'),
   userEmail: document.querySelector('#userEmail'),
   signOutButton: document.querySelector('#signOutButton'),
+  manualButton: document.querySelector('#manualButton'),
+  adminButton: document.querySelector('#adminButton'),
+  manualPanel: document.querySelector('#manualPanel'),
+  adminPanel: document.querySelector('#adminPanel'),
+  adminUserCount: document.querySelector('#adminUserCount'),
+  adminActivityCount: document.querySelector('#adminActivityCount'),
 };
 
 function loadData(key, fallback) {
@@ -189,6 +196,12 @@ async function syncCollection(key, value) {
   if (error) console.error(`No se pudo sincronizar ${table}:`, error.message);
 }
 
+async function logUsage(eventName, metadata = {}) {
+  if (!currentUser || !supabaseClient) return;
+  const { error } = await supabaseClient.from('usage_events').insert({ user_id: currentUser.id, event_name: eventName, metadata });
+  if (error) console.warn('No se pudo registrar actividad:', error.message);
+}
+
 async function loadRemoteData() {
   if (!currentUser || !supabaseClient) return;
   const results = await Promise.all(Object.entries(remoteTables).map(async ([key, table]) => {
@@ -209,6 +222,36 @@ async function loadRemoteData() {
       localStorage.setItem(key, JSON.stringify(records));
     }
   });
+}
+
+async function loadCurrentProfile() {
+  if (!currentUser || !supabaseClient) return;
+  const { data, error } = await supabaseClient.from('profiles').select('display_name, role').eq('id', currentUser.id).maybeSingle();
+  if (error) {
+    console.warn('No se pudo cargar el perfil:', error.message);
+    return;
+  }
+  currentProfile = data;
+  const isAdmin = data?.role === 'admin';
+  refs.adminButton.hidden = !isAdmin;
+}
+
+function openModal(panel) {
+  if (panel) panel.hidden = false;
+}
+
+function closeModal(panel) {
+  if (panel) panel.hidden = true;
+}
+
+async function loadAdminSummary() {
+  if (!currentProfile || currentProfile.role !== 'admin' || !supabaseClient) return;
+  const [{ count: userCount }, { count: activityCount }] = await Promise.all([
+    supabaseClient.from('profiles').select('id', { count: 'exact', head: true }),
+    supabaseClient.from('usage_events').select('id', { count: 'exact', head: true }),
+  ]);
+  refs.adminUserCount.textContent = userCount ?? '--';
+  refs.adminActivityCount.textContent = activityCount ?? '--';
 }
 
 function setAuthMessage(message, isError = false) {
@@ -240,6 +283,8 @@ async function handleAuthSubmit(event) {
 
 async function initializeAuthenticatedApp(user) {
   currentUser = user;
+  await loadCurrentProfile();
+  logUsage('session_started');
   await loadRemoteData();
   refs.authPanel.hidden = true;
   document.querySelector('.app-shell').hidden = false;
@@ -767,6 +812,7 @@ function importPlanFromMarkdown(markdown, sourceName = '') {
   const toAdd = parsed.filter((task) => !existing.has(`${task.title}|${task.subject}|${task.date}`));
 
   state.tasks = [...state.tasks, ...toAdd];
+  logUsage('plan_imported', { source: sourceName || 'pasted', task_count: toAdd.length });
   saveData(STORAGE_KEYS.tasks, state.tasks);
   if (toAdd.length) {
     state.selectedDate = toAdd[0].date;
@@ -1078,6 +1124,20 @@ if (refs.signOutButton && supabaseClient) {
     window.location.reload();
   });
 }
+
+if (refs.manualButton) refs.manualButton.addEventListener('click', () => openModal(refs.manualPanel));
+if (refs.adminButton) refs.adminButton.addEventListener('click', async () => {
+  openModal(refs.adminPanel);
+  await loadAdminSummary();
+});
+document.querySelectorAll('[data-close-modal]').forEach((button) => {
+  button.addEventListener('click', () => closeModal(document.querySelector(`#${button.dataset.closeModal}`)));
+});
+document.querySelectorAll('.modal-panel').forEach((panel) => {
+  panel.addEventListener('click', (event) => {
+    if (event.target === panel) closeModal(panel);
+  });
+});
 
 updateTimerTo(25);
 renderStats();
