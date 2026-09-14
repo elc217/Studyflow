@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <title>StudyFlow | Organizador de estudio</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="style.css?v=20260915" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark">S</div>
+          <div>
+            <p class="eyebrow">Herramienta</p>
+            <h1>StudyFlow</h1>
+          </div>
+        </div>
+
+        <nav class="nav">
+          <button class="nav-item active" data-filter="all">Todas</button>
+          <button class="nav-item" data-filter="today">Hoy</button>
+          <button class="nav-item" data-filter="upcoming">Próximas</button>
+          <button class="nav-item" data-filter="done">Completadas</button>
+        </nav>
+
+        <div class="focus-card">
+          <p class="card-label">Siguiente bloque</p>
+          <h2 id="nextTask">Planifica tu semana</h2>
+          <div class="mini-meta">
+            <span id="nextTaskMeta">📚 Agenda</span>
+            <span id="nextTaskTime">0 min</span>
+          </div>
+        </div>
+      </aside>
+
+      <main class="main-panel">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Planificación</p>
+            <h2>Agenda semanal por horario</h2>
+          </div>
+          <div class="top-actions">
+            <button id="prevWeek" class="ghost-btn small" type="button">Semana anterior</button>
+            <button id="nextWeek" class="ghost-btn small" type="button">Semana siguiente</button>
+            <button class="primary-btn" id="addTaskButton">+ Nueva tarea</button>
+          </div>
+        </header>
+
+        <section class="stats-grid">
+          <article class="stat-card accent">
+            <p>Total</p>
+            <h3 id="statTotal">0</h3>
+            <span>tareas</span>
+          </article>
+          <article class="stat-card purple">
+            <p>Completadas</p>
+            <h3 id="statDone">0</h3>
+            <span>hechas</span>
+          </article>
+          <article class="stat-card green">
+            <p>Tiempo</p>
+            <h3 id="statMinutes">0</h3>
+            <span>min</span>
+          </article>
+          <article class="stat-card orange">
+            <p>Hoy</p>
+            <h3 id="statToday">0</h3>
+            <span>bloques</span>
+          </article>
+        </section>
+
+        <section class="planner-layout">
+          <div class="panel calendar-panel">
+            <div class="panel-header">
+              <h3 id="weekLabel">Semana</h3>
+              <div class="calendar-tools">
+                <div class="calendar-legend">
+                  <span class="legend-item"><i class="dot dot-done"></i> Hecho</span>
+                  <span class="legend-item"><i class="dot dot-plan"></i> Planificado</span>
+                  <span class="legend-item"><i class="dot dot-live"></i> En curso</span>
+                </div>
+                <button id="editCalendarButton" class="secondary-btn small" type="button">Editar calendario</button>
+              </div>
+            </div>
+
+            <div class="task-form-wrap" id="taskFormWrap">
+              <form id="taskForm" class="task-form">
+                <div class="field-group">
+                  <label for="taskTitle">Tema</label>
+                  <input id="taskTitle" name="title" type="text" placeholder="Ej. Revisar ecuaciones" required />
+                </div>
+
+                <div class="field-row">
+                  <div class="field-group">
+                    <label for="taskSubject">Materia</label>
+                    <input id="taskSubject" name="subject" type="text" placeholder="Matemáticas" required />
+                  </div>
+                  <div class="field-group">
+                    <label for="taskDuration">Duración</label>
+                    <input id="taskDuration" name="duration" type="number" min="15" max="180" step="5" value="45" required />
+                  </div>
+                </div>
+
+                <div class="field-row">
+                  <div class="field-group">
+                    <label for="taskDate">Fecha</label>
+                    <input id="taskDate" name="date" type="date" required />
+                  </div>
+                  <div class="field-group">
+                    <label for="taskTime">Hora</label>
+                    <input id="taskTime" name="time" type="time" value="09:00" required />
+                  </div>
+                </div>
+
+                <div class="field-row">
+                  <div class="field-group">
+                    <label for="taskPriority">Prioridad</label>
+                    <select id="taskPriority" name="priority">
+                      <option value="Alta">Alta</option>
+                      <option value="Media" selected>Media</option>
+                      <option value="Baja">Baja</option>
+                    </select>
+                  </div>
+                  <div class="field-group">
+                    <label for="taskStatus">Estado</label>
+                    <select id="taskStatus" name="status">
+                      <option value="planificado">Planificado</option>
+                      <option value="en-curso">En curso</option>
+                      <option value="completado">Completado</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="field-group">
+                  <label for="taskDifficulty">Dificultad del bloque</label>
+                  <select id="taskDifficulty" name="difficulty">
+                    <option value="baja">Baja</option>
+                    <option value="media" selected>Media</option>
+                    <option value="alta">Alta</option>
+                  </select>
+                </div>
+
+                <button type="submit" class="primary-btn full">Guardar tarea</button>
+              </form>
+            </div>
+
+            <div id="calendarGrid" class="calendar-grid"></div>
+          </div>
+
+          <div class="side-stack">
+            <div class="panel side-panel">
+              <div class="panel-header">
+                <h3>Resumen del día</h3>
+              </div>
+              <div id="dayDetailHeader" class="day-detail-header"></div>
+              <ul id="dayDetailList" class="day-detail-list"></ul>
+            </div>
+
+            <div class="panel side-panel timer-panel">
+              <div class="panel-header">
+                <h3>Temporizador</h3>
+              </div>
+              <div class="timer-box">
+                <div class="timer-display" id="timerDisplay">25:00</div>
+                <div class="timer-options">
+                  <button class="timer-btn active" data-minutes="25" type="button">25 min</button>
+                  <button class="timer-btn" data-minutes="50" type="button">50 min</button>
+                  <button class="timer-btn" data-minutes="15" type="button">15 min</button>
+                </div>
+                <div class="field-group compact-field">
+                  <label for="customTimerMinutes">Tiempo personalizado</label>
+                  <input id="customTimerMinutes" type="number" min="5" max="180" step="5" value="25" />
+                </div>
+                <div class="timer-actions">
+                  <button class="secondary-btn" id="startTimer" type="button">Iniciar</button>
+                  <button class="ghost-btn" id="resetTimer" type="button">Reiniciar</button>
+                  <button class="ghost-btn" id="applyCustomTimer" type="button">Aplicar</button>
+                </div>
+              </div>
+              <div class="review-suggestions" id="reviewSuggestions"></div>
+            </div>
+
+            <div class="panel side-panel import-box-panel">
+              <div class="panel-header compact">
+                <h3>Importar plan</h3>
+              </div>
+              <div class="import-actions">
+                <input id="planFileInput" type="file" accept=".md,.txt,.docx,.pdf" hidden />
+                <button id="choosePlanFile" class="secondary-btn small" type="button">Mi planificación (.md, .docx, .pdf)</button>
+                <button id="loadExamplePlan" class="ghost-btn small" type="button">Cargar ejemplo</button>
+                <button id="exportBackupButton" class="ghost-btn small" type="button">Exportar copia</button>
+                <input id="backupFileInput" type="file" accept=".json" hidden />
+                <button id="restoreBackupButton" class="ghost-btn small" type="button">Restaurar copia</button>
+              </div>
+              <div id="loadedPlanLabel" class="loaded-plan">Sin archivo de planificación cargado</div>
+              <textarea id="planMarkdown" rows="6" placeholder="Formato recomendado:&#10;- [ ] Matemáticas | Álgebra | 45 | 2026-09-15 | 09:00 | Alta"></textarea>
+              <button id="importPlanButton" class="primary-btn full" type="button">Importar planificación</button>
+            </div>
+
+            <div class="panel side-panel">
+              <div class="panel-header">
+                <h3>Cuaderno de errores</h3>
+              </div>
+              <form id="noteForm" class="mini-form">
+                <div class="field-row">
+                  <div class="field-group">
+                    <label for="noteSubject">Materia</label>
+                    <input id="noteSubject" name="subject" type="text" placeholder="Química" required />
+                  </div>
+                  <div class="field-group">
+                    <label for="noteDate">Fecha</label>
+                    <input id="noteDate" name="date" type="date" required />
+                  </div>
+                </div>
+                <div class="field-group">
+                  <label for="noteTopic">Tema / bloque</label>
+                  <input id="noteTopic" name="topic" type="text" placeholder="Regla del octeto" required />
+                </div>
+                <div class="field-group">
+                  <label for="noteTask">Tarea asociada</label>
+                  <select id="noteTask" name="taskId">
+                    <option value="">Sin tarea asociada</option>
+                  </select>
+                </div>
+                <div class="field-row">
+                  <div class="field-group">
+                    <label for="noteDifficulty">Dificultad</label>
+                    <select id="noteDifficulty" name="difficulty">
+                      <option value="baja">Baja</option>
+                      <option value="media" selected>Media</option>
+                      <option value="alta">Alta</option>
+                    </select>
+                  </div>
+                  <div class="field-group checkbox-group">
+                    <label for="noteNeedsReview">Repaso posterior</label>
+                    <input id="noteNeedsReview" name="needsReview" type="checkbox" checked />
+                  </div>
+                </div>
+                <div class="field-group">
+                  <label for="noteText">Qué fallé y cómo lo corrijo</label>
+                  <textarea id="noteText" name="text" rows="4" placeholder="Ej. No entendí bien la regla del octeto..." required></textarea>
+                </div>
+                <button type="submit" class="primary-btn full">Guardar en cuaderno</button>
+              </form>
+              <div class="notes-tools">
+                <input id="noteSearch" type="search" placeholder="Buscar por materia, tema o texto" />
+              </div>
+              <ul id="notesList" class="history-list"></ul>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+    <script src="app.js?v=20260915-import-visible"></script>
+  </body>
+</html>

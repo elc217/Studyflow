@@ -1,0 +1,17 @@
+# Sistema operativo
+.DS_Store
+
+# Editores
+.vscode/
+.idea/
+
+# Dependencias y builds
+node_modules/
+dist/
+build/
+
+# Archivos locales de datos
+*.json
+*.backup
+.env
+.env.*
