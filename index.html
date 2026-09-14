@@ -11,8 +11,30 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="style.css?v=20260915" />
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   </head>
   <body>
+    <section id="authPanel" class="auth-panel" hidden>
+      <div class="auth-card">
+        <div class="brand-mark">S</div>
+        <p class="eyebrow">StudyFlow</p>
+        <h1>Tu agenda, sincronizada</h1>
+        <p class="auth-copy">Crea una cuenta o inicia sesión para acceder a tu planificación desde cualquier dispositivo.</p>
+        <form id="authForm" class="auth-form">
+          <div class="field-group">
+            <label for="authEmail">Email</label>
+            <input id="authEmail" type="email" autocomplete="email" required />
+          </div>
+          <div class="field-group">
+            <label for="authPassword">Contraseña</label>
+            <input id="authPassword" type="password" autocomplete="current-password" minlength="6" required />
+          </div>
+          <button id="authSubmit" class="primary-btn full" type="submit">Iniciar sesión</button>
+          <button id="authToggle" class="ghost-btn full" type="button">Crear cuenta</button>
+          <p id="authMessage" class="auth-message" role="status"></p>
+        </form>
+      </div>
+    </section>
     <div class="app-shell">
       <aside class="sidebar">
         <div class="brand">
@@ -47,6 +69,8 @@
             <h2>Agenda semanal por horario</h2>
           </div>
           <div class="top-actions">
+            <span id="userEmail" class="user-email"></span>
+            <button id="signOutButton" class="ghost-btn small" type="button">Cerrar sesión</button>
             <button id="prevWeek" class="ghost-btn small" type="button">Semana anterior</button>
             <button id="nextWeek" class="ghost-btn small" type="button">Semana siguiente</button>
             <button class="primary-btn" id="addTaskButton">+ Nueva tarea</button>
@@ -261,6 +285,6 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
-    <script src="app.js?v=20260915-import-visible"></script>
+    <script src="app.js?v=20260915-supabase-auth"></script>
   </body>
 </html>

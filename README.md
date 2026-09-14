@@ -17,6 +17,7 @@ Organizador visual de estudio con agenda semanal por horas, temporizador flexibl
 - Priorizacion visual de repasos segun dificultad, fallos y errores repetidos.
 - Exportacion y restauracion de copias de seguridad.
 - Persistencia local mediante `localStorage`.
+- Sincronizacion multiusuario con Supabase y autenticacion por email.
 
 ## Ejecutar localmente
 
@@ -76,6 +77,16 @@ El proyecto es estatico y puede publicarse directamente con GitHub Pages:
 4. Guarda la configuracion.
 
 GitHub generara una URL publica para la aplicacion.
+
+## Configurar Supabase
+
+1. Crea un proyecto en Supabase.
+2. Abre **SQL Editor**, crea una consulta nueva y ejecuta el contenido de `supabase-schema.sql`.
+3. Comprueba que aparecen las tablas `tasks`, `tests` y `notes`.
+4. La aplicacion usa la clave publica `publishable` en el navegador. No introduzcas nunca una clave `service_role` en el frontend.
+5. Activa la confirmacion por email en **Authentication > Providers > Email** si quieres verificar las cuentas antes del primer acceso.
+
+La aplicacion identifica los datos mediante `auth.uid()` y las politicas RLS impiden que un usuario consulte o modifique los datos de otro.
 
 ## Datos y privacidad
 

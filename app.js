@@ -4,6 +4,11 @@ const STORAGE_KEYS = {
   notes: 'studyflow-notes',
 };
 
+const SUPABASE_URL = 'https://ymlinhhriprtyhaamsrz.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_i4lrF89M1YcyFmkjY9s_JA_zLA7MMOC';
+const supabaseClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+let currentUser = null;
+
 function formatDate(date) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -130,6 +135,15 @@ const refs = {
   reviewSuggestions: document.querySelector('#reviewSuggestions'),
   timerButtons: [...document.querySelectorAll('.timer-btn')],
   navButtons: [...document.querySelectorAll('.nav-item')],
+  authPanel: document.querySelector('#authPanel'),
+  authForm: document.querySelector('#authForm'),
+  authEmail: document.querySelector('#authEmail'),
+  authPassword: document.querySelector('#authPassword'),
+  authSubmit: document.querySelector('#authSubmit'),
+  authToggle: document.querySelector('#authToggle'),
+  authMessage: document.querySelector('#authMessage'),
+  userEmail: document.querySelector('#userEmail'),
+  signOutButton: document.querySelector('#signOutButton'),
 };
 
 function loadData(key, fallback) {
@@ -145,6 +159,112 @@ function loadData(key, fallback) {
 
 function saveData(key, value) {
   localStorage.setItem(key, JSON.stringify(value));
+  if (currentUser && supabaseClient) syncCollection(key, value);
+}
+
+const remoteTables = {
+  [STORAGE_KEYS.tasks]: 'tasks',
+  [STORAGE_KEYS.tests]: 'tests',
+  [STORAGE_KEYS.notes]: 'notes',
+};
+
+function toRemoteRow(table, item) {
+  if (table === 'tasks') {
+    return { id: item.id, user_id: currentUser.id, title: item.title, subject: item.subject, duration: item.duration, date: item.date, start_time: item.startTime, priority: item.priority, status: item.status, completed: item.completed, difficulty: item.difficulty, needs_review: item.needsReview };
+  }
+  if (table === 'tests') return { id: item.id, user_id: currentUser.id, subject: item.subject, date: item.date, correct: item.correct, incorrect: item.incorrect };
+  return { id: item.id, user_id: currentUser.id, subject: item.subject, topic: item.topic, task_id: item.taskId || null, text: item.text, date: item.date, difficulty: item.difficulty, needs_review: item.needsReview };
+}
+
+function fromRemoteRow(table, item) {
+  if (table === 'tasks') return normalizeTask({ ...item, startTime: item.start_time, needsReview: item.needs_review });
+  if (table === 'tests') return item;
+  return normalizeNote({ ...item, taskId: item.task_id, needsReview: item.needs_review });
+}
+
+async function syncCollection(key, value) {
+  const table = remoteTables[key];
+  if (!table || !currentUser || !supabaseClient) return;
+  const { error } = await supabaseClient.from(table).upsert(value.map((item) => toRemoteRow(table, item)), { onConflict: 'id' });
+  if (error) console.error(`No se pudo sincronizar ${table}:`, error.message);
+}
+
+async function loadRemoteData() {
+  if (!currentUser || !supabaseClient) return;
+  const results = await Promise.all(Object.entries(remoteTables).map(async ([key, table]) => {
+    const { data, error } = await supabaseClient.from(table).select('*').order('date', { ascending: true });
+    return { key, data, error };
+  }));
+  results.forEach(({ key, data, error }) => {
+    if (error) {
+      console.error(`No se pudo cargar ${remoteTables[key]}:`, error.message);
+      return;
+    }
+    const table = remoteTables[key];
+    const records = (data || []).map((item) => fromRemoteRow(table, item));
+    if (records.length) {
+      if (key === STORAGE_KEYS.tasks) state.tasks = records;
+      if (key === STORAGE_KEYS.tests) state.tests = records;
+      if (key === STORAGE_KEYS.notes) state.notes = records;
+      localStorage.setItem(key, JSON.stringify(records));
+    }
+  });
+}
+
+function setAuthMessage(message, isError = false) {
+  refs.authMessage.textContent = message;
+  refs.authMessage.classList.toggle('error', isError);
+}
+
+async function handleAuthSubmit(event) {
+  event.preventDefault();
+  const email = refs.authEmail.value.trim();
+  const password = refs.authPassword.value;
+  const method = refs.authForm.dataset.mode || 'login';
+  refs.authSubmit.disabled = true;
+  setAuthMessage('Conectando...');
+  const result = method === 'signup'
+    ? await supabaseClient.auth.signUp({ email, password })
+    : await supabaseClient.auth.signInWithPassword({ email, password });
+  refs.authSubmit.disabled = false;
+  if (result.error) {
+    setAuthMessage(result.error.message, true);
+    return;
+  }
+  if (method === 'signup' && !result.data.session) {
+    setAuthMessage('Cuenta creada. Revisa tu email para confirmar el acceso.');
+    return;
+  }
+  await initializeAuthenticatedApp(result.data.session?.user || result.data.user);
+}
+
+async function initializeAuthenticatedApp(user) {
+  currentUser = user;
+  await loadRemoteData();
+  refs.authPanel.hidden = true;
+  document.querySelector('.app-shell').hidden = false;
+  refs.userEmail.textContent = user.email || '';
+  renderStats();
+  renderCalendar();
+  renderTestHistory();
+  updateNoteTaskOptions();
+  renderNotes();
+  renderReviewSuggestions();
+}
+
+async function initializeAuth() {
+  if (!supabaseClient) {
+    refs.authPanel.hidden = false;
+    setAuthMessage('No se pudo cargar Supabase. Comprueba tu conexión.', true);
+    return;
+  }
+  const { data } = await supabaseClient.auth.getSession();
+  if (data.session?.user) {
+    await initializeAuthenticatedApp(data.session.user);
+    return;
+  }
+  document.querySelector('.app-shell').hidden = true;
+  refs.authPanel.hidden = false;
 }
 
 function resetTaskForm() {
@@ -801,6 +921,7 @@ refs.calendarGrid.addEventListener('click', (event) => {
       if (!window.confirm(`¿Eliminar "${task.title}"?`)) return;
       state.tasks = state.tasks.filter((item) => item.id !== task.id);
       saveData(STORAGE_KEYS.tasks, state.tasks);
+      if (currentUser && supabaseClient) supabaseClient.from('tasks').delete().eq('id', task.id).eq('user_id', currentUser.id);
       renderStats();
       renderCalendar();
       updateNoteTaskOptions();
@@ -937,6 +1058,27 @@ if (refs.customTimerMinutes) {
 }
 if (refs.startTimer) refs.startTimer.addEventListener('click', startTimer);
 if (refs.resetTimer) refs.resetTimer.addEventListener('click', resetTimer);
+
+if (refs.authForm) {
+  refs.authForm.dataset.mode = 'login';
+  refs.authForm.addEventListener('submit', handleAuthSubmit);
+}
+if (refs.authToggle) {
+  refs.authToggle.addEventListener('click', () => {
+    const isSignup = refs.authForm.dataset.mode !== 'signup';
+    refs.authForm.dataset.mode = isSignup ? 'signup' : 'login';
+    refs.authSubmit.textContent = isSignup ? 'Crear cuenta' : 'Iniciar sesión';
+    refs.authToggle.textContent = isSignup ? 'Ya tengo una cuenta' : 'Crear cuenta';
+    setAuthMessage('');
+  });
+}
+if (refs.signOutButton && supabaseClient) {
+  refs.signOutButton.addEventListener('click', async () => {
+    await supabaseClient.auth.signOut();
+    window.location.reload();
+  });
+}
+
 updateTimerTo(25);
 renderStats();
 renderCalendar();
@@ -944,3 +1086,4 @@ renderTestHistory();
 updateNoteTaskOptions();
 renderNotes();
 renderReviewSuggestions();
+initializeAuth();
