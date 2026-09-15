@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 390" role="img" aria-labelledby="title desc">
+  <title id="title">Calendario semanal de StudyFlow</title><desc id="desc">Bloques de estudio distribuidos en una semana</desc>
+  <rect width="900" height="390" rx="28" fill="#f7f5ef"/>
+  <rect x="36" y="32" width="828" height="326" rx="18" fill="white" stroke="#d3dedb" stroke-width="2"/>
+  <rect x="36" y="32" width="828" height="55" rx="18" fill="#17343a"/><text x="66" y="67" font-family="Arial" font-size="21" font-weight="700" fill="white">Semana del 15 al 21 de septiembre</text>
+  <g stroke="#d3dedb" stroke-width="1"><path d="M130 87v271M235 87v271M340 87v271M445 87v271M550 87v271M655 87v271M760 87v271"/><path d="M36 135h828M36 183h828M36 231h828M36 279h828M36 327h828"/></g>
+  <g font-family="Arial" font-size="13" font-weight="700" fill="#68777d" text-anchor="middle"><text x="182" y="112">LUN</text><text x="287" y="112">MAR</text><text x="392" y="112">MIÉ</text><text x="497" y="112">JUE</text><text x="602" y="112">VIE</text><text x="707" y="112">SÁB</text><text x="812" y="112">DOM</text></g>
+  <g font-family="Arial" font-size="12" font-weight="700"><rect x="145" y="144" width="82" height="72" rx="10" fill="#e85f50"/><text x="156" y="164" fill="white">Álgebra</text><text x="156" y="184" fill="#fff1ed">50 min</text><text x="156" y="202" fill="#fff1ed">09:00</text><rect x="355" y="192" width="82" height="72" rx="10" fill="#3d7c78"/><text x="366" y="212" fill="white">Tema 2</text><text x="366" y="232" fill="#e2f0ed">45 min</text><text x="366" y="250" fill="#e2f0ed">11:00</text><rect x="565" y="240" width="82" height="72" rx="10" fill="#d99432"/><text x="576" y="260" fill="white">Repaso</text><text x="576" y="280" fill="#fff2d9">35 min</text><text x="576" y="298" fill="#fff2d9">17:00</text></g>
+</svg>

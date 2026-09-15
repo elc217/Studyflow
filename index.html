@@ -340,38 +340,50 @@
         </div>
         <div class="manual-content">
           <p class="manual-lead">StudyFlow convierte tus objetivos, disponibilidad y temario en una agenda semanal con bloques concretos. Puedes trabajar solo con el navegador o iniciar sesión para sincronizar tus datos.</p>
+          <figure class="manual-figure"><img src="manual-flow.svg" alt="Flujo de StudyFlow: configurar, generar, estudiar y revisar" /><figcaption>El método completo en cuatro pasos: primero describe tu realidad, después deja que StudyFlow distribuya el trabajo.</figcaption></figure>
           <h3>1. Primer acceso y navegación</h3>
-          <p>En la barra lateral puedes filtrar todas las tareas, las de hoy, las próximas o las completadas. El calendario muestra una semana cada vez; usa <strong>Semana anterior</strong> y <strong>Semana siguiente</strong> para moverte.</p>
-          <p>La tarjeta <strong>Siguiente bloque</strong> muestra la próxima sesión. Las estadísticas superiores resumen tareas, completadas, minutos y bloques del día.</p>
+          <p>En la barra lateral puedes filtrar todas las tareas, las de hoy, las próximas o las completadas. El calendario muestra una semana cada vez; usa <strong>Semana anterior</strong> y <strong>Semana siguiente</strong> para moverte. Selecciona un día para ver su resumen a la derecha.</p>
+          <p>La tarjeta <strong>Siguiente bloque</strong> muestra la próxima sesión. Las estadísticas superiores resumen tareas, completadas, minutos y bloques del día. Si tienes cuenta, inicia sesión antes de trabajar para sincronizar los cambios.</p>
           <h3>2. Generar una planificación automática</h3>
+          <figure class="manual-figure"><img src="manual-generator.svg" alt="Ejemplo visual del configurador de planificación" /><figcaption>Completa los campos de arriba abajo. Los días marcados son los únicos que recibirán sesiones.</figcaption></figure>
           <ol>
-            <li>Indica la fecha de comienzo y la fecha posible del examen.</li>
-            <li>Introduce tu edad y las horas de estudio realistas por día.</li>
-            <li>Indica el número de temarios y los temas que contiene cada uno.</li>
-            <li>Marca tus días disponibles. Los días sin marcar nunca recibirán bloques.</li>
-            <li>Configura cada cuánto quieres descansar y cuántos minutos dura el descanso.</li>
-            <li>Opcionalmente, adjunta un PDF por temario. StudyFlow intentará detectar líneas como “Tema 1: ...” y usará esos nombres.</li>
-            <li>Pulsa <strong>Generar plan</strong>. El plan se importa automáticamente y también queda disponible para descargar como Markdown.</li>
+            <li><strong>Fechas:</strong> el comienzo es el primer día posible; el examen es una fecha límite, no una sesión de estudio.</li>
+            <li><strong>Edad y horas:</strong> indica una capacidad sostenible, incluyendo pausas y obligaciones. Es mejor introducir 2 horas mantenibles que 6 imposibles.</li>
+            <li><strong>Temarios:</strong> escribe cuántos bloques de contenido tendrás y cuántos temas hay en cada uno.</li>
+            <li><strong>Días:</strong> marca solo días realmente disponibles. Los días sin marcar nunca recibirán sesiones.</li>
+            <li><strong>Descansos:</strong> 50 minutos de trabajo y 10 de pausa es un punto de partida equilibrado; usa 25/5 si te cuesta arrancar.</li>
+            <li><strong>PDF:</strong> adjunta un índice o temario con texto seleccionable. Se intentan reconocer líneas como “Tema 1: ...”, “Unidad 2 - ...” o listas numeradas.</li>
+            <li><strong>Resultado:</strong> pulsa <strong>Generar plan</strong>. Se importa automáticamente y queda disponible para descargar como Markdown.</li>
           </ol>
           <p>El generador reserva siempre los 21 días anteriores al examen para repasar. Si el periodo es demasiado corto o la carga no cabe con tu disponibilidad, solicita más tiempo, más horas o menos temas.</p>
           <h3>3. Cómo calcula el tiempo</h3>
-          <p>La estimación parte de una duración base y la ajusta por dificultad. Los temas con términos complejos, problemas, excepciones o títulos extensos reciben más tiempo. La edad aplica un factor gradual: a partir de los 25 años aumenta moderadamente la duración estimada; no sustituye a tu propia experiencia.</p>
-          <p>Cada tema se divide en bloques respetando tus descansos. En las tres semanas finales se crea al menos un bloque de repaso por tema.</p>
-          <h3>4. Crear o editar una tarea manual</h3>
+          <p>La estimación parte de una duración base y la ajusta por dificultad. Los temas con términos complejos, problemas, excepciones o títulos extensos reciben más tiempo. La edad aplica un factor gradual: a partir de los 25 años aumenta moderadamente la duración estimada; no sustituye a tu propia experiencia ni pretende medir la capacidad de una persona.</p>
+          <p>Cada tema se divide en bloques respetando tus descansos. En las tres semanas finales se crea al menos un bloque de repaso por tema. Revisa la primera semana y modifica manualmente los bloques si tu experiencia real difiere.</p>
+          <h3>4. Leer el calendario semanal</h3>
+          <figure class="manual-figure"><img src="manual-calendar.svg" alt="Ejemplo visual de bloques en el calendario semanal" /><figcaption>Los colores distinguen sesiones planificadas, en curso y completadas; cada bloque muestra tema, duración y hora.</figcaption></figure>
+          <p>Lee cada columna como un día y cada bloque como una sesión ejecutable. Empieza por la hora indicada, marca la tarea como completada cuando termines y usa la dificultad para señalar qué debe recibir más atención.</p>
+          <h3>5. Crear o editar una tarea manual</h3>
           <p>Pulsa <strong>+ Nueva tarea</strong>, completa tema, materia, duración, fecha, hora, prioridad, estado y dificultad, y guarda. Para editar o eliminar tareas, activa <strong>Editar calendario</strong> y usa los controles del bloque.</p>
-          <h3>5. Importar un fichero</h3>
+          <h3>6. Importar un fichero</h3>
           <p>En <strong>Importar plan</strong> puedes seleccionar Markdown, TXT, DOCX o PDF, pegar texto o cargar el ejemplo. También se acepta una línea por tarea:</p>
           <pre>- [ ] Matemáticas | Álgebra | 45 | 2026-09-15 | 09:00 | Alta</pre>
           <p>El orden es: título, materia, minutos, fecha ISO, hora y prioridad. Las líneas marcadas con <code>[x]</code> entran como completadas.</p>
-          <h3>6. Estudio, temporizador y repasos</h3>
+          <h3>7. Estudio, temporizador y repasos</h3>
           <p>El temporizador ofrece sesiones de 15, 25 o 50 minutos y permite introducir una duración personalizada. Enciéndelo al comenzar y reinícialo al terminar o cambiar de tarea.</p>
-          <p>La aplicación propone repasos usando dificultad, resultados de tests y entradas del cuaderno de errores. Registra los errores concretos, la materia, el tema y la corrección que necesitas practicar.</p>
-          <h3>7. Tests y cuaderno de errores</h3>
+          <p>La aplicación propone repasos usando dificultad, resultados de tests y entradas del cuaderno de errores. Una sesión eficaz tiene un objetivo visible: leer, resumir, resolver, corregir o recuperar de memoria.</p>
+          <h3>8. Tests y cuaderno de errores</h3>
           <p>Guarda aciertos y fallos de cada test para consultar tu precisión. En el cuaderno puedes asociar un error a una tarea y marcarlo para repaso posterior. El buscador encuentra coincidencias por materia, tema o texto.</p>
-          <h3>8. Copias de seguridad y sincronización</h3>
+          <h3>9. Copias de seguridad y sincronización</h3>
           <p><strong>Exportar copia</strong> descarga tareas, tests y notas en JSON. <strong>Restaurar copia</strong> reemplaza los datos actuales por el fichero seleccionado, así que conviene exportar antes.</p>
           <p>Sin iniciar sesión, los datos viven en el navegador actual. Con una cuenta, StudyFlow sincroniza tareas, tests y notas con Supabase para acceder desde otros dispositivos.</p>
-          <h3>9. Solución de problemas</h3>
+          <h3>10. Rutina recomendada</h3>
+          <ol>
+            <li>Al comenzar el día, revisa el bloque siguiente y prepara solo el material de esa sesión.</li>
+            <li>Durante la sesión, estudia con el temporizador y anota dudas en el cuaderno, no interrumpas el bloque para resolverlas todas.</li>
+            <li>Al terminar, marca la tarea y registra un test breve o una pregunta de recuperación.</li>
+            <li>Al final de la semana, compara tiempo previsto y real y ajusta las siguientes sesiones.</li>
+          </ol>
+          <h3>11. Solución de problemas</h3>
           <ul>
             <li>Si un PDF no detecta temas, comprueba que el texto se puede seleccionar y escribe manualmente el número de temas.</li>
             <li>Si no caben las sesiones, aumenta el periodo hasta el examen, selecciona más días o reduce las horas de otras obligaciones.</li>
