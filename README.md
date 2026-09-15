@@ -27,6 +27,11 @@ Organizador visual de estudio con agenda semanal por horas, temporizador flexibl
 - Repaso espaciado orientativo a 1, 3, 7, 14 y 21 dias con una accion concreta por bloque.
 - Seguimiento semanal de cumplimiento, minutos, pendientes, errores y tests con sugerencias de ajuste.
 - Preguntas/test y supuesto práctico obligatorios al terminar cada tema, ajustados a la dificultad.
+- Sesiones semanales con peso real sobre el tiempo estimado de cada asignatura o temario.
+- Diagnóstico de capacidad antes de generar y soporte para hitos o exámenes intermedios.
+- Replanificación de tareas atrasadas sin superar una carga diaria conservadora.
+- Desglose de progreso por asignatura y minutos completados.
+- Conversor de PDF orientado a temarios con índice editable, exportación Markdown y OCR opcional para PDFs escaneados.
 
 ## Ejecutar localmente
 

@@ -205,7 +205,9 @@
                 </div>
               </div>
               <div id="progressSummary" class="progress-summary"></div>
+              <div id="progressSubjectBreakdown" class="progress-subject-breakdown"></div>
               <div id="progressSuggestions" class="progress-suggestions"></div>
+              <button id="reschedulePendingButton" class="secondary-btn small full" type="button">Replanificar pendientes</button>
             </div>
 
             <div class="panel side-panel timer-panel">
@@ -299,6 +301,7 @@
                   </div>
                 </div>
                 <div class="field-group"><label id="generatorSyllabusLabel">Asignaturas, módulos y temas</label><div id="generatorSyllabusDetails" class="syllabus-details"></div><small class="field-hint">Las clases semanales determinan el peso de cada asignatura. El orden de los temas se conserva en el plan.</small></div>
+                <div class="field-group"><label for="generatorMilestones">Hitos y exámenes intermedios (opcional)</label><textarea id="generatorMilestones" rows="3" placeholder="2026-10-15 | Parcial de Derecho\n2026-11-20 | Entrega del proyecto"></textarea><small class="field-hint">Una línea por hito con el formato fecha ISO, barra vertical y descripción.</small></div>
                 <div class="field-row">
                   <div class="field-group"><label for="generatorBreakMode">Pausas</label><select id="generatorBreakMode"><option value="recommended" selected>Recomendadas</option><option value="custom">Personalizadas</option></select></div>
                   <div class="field-group"><label for="generatorBreakEvery">Intervalo de trabajo (min)</label><input id="generatorBreakEvery" type="number" min="20" max="180" step="5" value="50" /></div>
@@ -311,9 +314,11 @@
                 <div class="field-group"><label for="generatorFiles">Índices o temarios completos en PDF (opcional)</label><input id="generatorFiles" type="file" accept="application/pdf,.pdf" multiple /><small class="field-hint">Puedes subir índices o PDFs extensos; se analizan páginas, títulos detectados y tamaño aproximado de cada tema.</small></div>
                 <div class="generator-pdf-tools">
                   <button id="analyzeGeneratorPdfs" class="secondary-btn small" type="button">Analizar PDF y revisar índice</button>
+                  <button id="ocrGeneratorPdfs" class="ghost-btn small" type="button" hidden>Intentar OCR del PDF</button>
                   <button id="downloadPdfMarkdown" class="ghost-btn small" type="button" disabled>Descargar Markdown</button>
                 </div>
                 <div id="generatorFileStatus" class="generator-status" role="status"></div>
+                <div id="generatorCapacityNote" class="generator-capacity-note" hidden></div>
                 <section id="generatorPdfReview" class="generator-pdf-review" hidden>
                   <div class="pdf-review-header">
                     <div>
@@ -454,6 +459,7 @@
           <p>La estimación parte de una duración base y la ajusta por dificultad. Los temas con términos complejos, problemas, excepciones o títulos extensos reciben más tiempo. La edad aplica un factor gradual: a partir de los 25 años aumenta moderadamente la duración estimada; no sustituye a tu propia experiencia ni pretende medir la capacidad de una persona.</p>
           <p><strong>Temarios completos:</strong> sí, puedes subir PDFs extensos, no solo índices. StudyFlow lee el texto seleccionable página a página, detecta encabezados como “Tema 1”, “Unidad 2” o “Capítulo 3” y estima el tamaño de cada tema por el número aproximado de páginas hasta el siguiente encabezado. Si el PDF es un escaneado de imágenes o no tiene encabezados reconocibles, usará el número de temas indicado y una estimación genérica; en ese caso conviene revisar el resultado.</p>
           <p><strong>Conversor orientado a temarios:</strong> el botón de análisis crea un índice Markdown estructurado por temario. La tabla permite cambiar títulos, ajustar la extensión y excluir anexos o partes que no entren en el examen. Si confirmas la revisión, el generador reutiliza ese índice y no vuelve a procesar el PDF completo.</p>
+          <p><strong>PDF escaneado:</strong> si no se detecta texto, aparece <strong>Intentar OCR del PDF</strong>. El OCR se ejecuta bajo demanda en el navegador, analiza como máximo 80 páginas por operación y puede tardar; después debes revisar el índice porque el reconocimiento de imágenes no es infalible.</p>
           <p><strong>Práctica obligatoria por tema:</strong> al terminar cada tema, el plan añade un bloque de preguntas de recuperación o test y otro de supuesto práctico/caso aplicado. La dificultad determina su duración: un tema difícil necesita más preguntas y un caso más largo. Si una parte no utiliza supuestos prácticos, puedes editar o eliminar esos bloques desde <strong>Editar calendario</strong>.</p>
           <p>Cada tema se divide en bloques respetando tus descansos. El plan generado propone repasos espaciados aproximadamente a 1, 3, 7, 14 y 21 días cuando caben en el calendario. Cada bloque indica qué hacer: recordar sin apuntes, practicar, corregir errores, hacer un test o preparar una síntesis final. Revisa la primera semana y modifica manualmente los bloques si tu experiencia real difiere.</p>
           <h3>4. Leer el calendario semanal</h3>

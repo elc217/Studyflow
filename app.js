@@ -127,7 +127,9 @@ const refs = {
   dayDetailHeader: document.querySelector('#dayDetailHeader'),
   dayDetailList: document.querySelector('#dayDetailList'),
   progressSummary: document.querySelector('#progressSummary'),
+  progressSubjectBreakdown: document.querySelector('#progressSubjectBreakdown'),
   progressSuggestions: document.querySelector('#progressSuggestions'),
+  reschedulePendingButton: document.querySelector('#reschedulePendingButton'),
   choosePlanFile: document.querySelector('#choosePlanFile'),
   planFileInput: document.querySelector('#planFileInput'),
   planMarkdown: document.querySelector('#planMarkdown'),
@@ -158,6 +160,7 @@ const refs = {
   generatorConvocatoriaIndex: document.querySelector('#generatorConvocatoriaIndex'),
   generatorSyllabusDetails: document.querySelector('#generatorSyllabusDetails'),
   generatorSyllabusLabel: document.querySelector('#generatorSyllabusLabel'),
+  generatorMilestones: document.querySelector('#generatorMilestones'),
   generatorBreakMode: document.querySelector('#generatorBreakMode'),
   generatorBreakEvery: document.querySelector('#generatorBreakEvery'),
   generatorBreakDuration: document.querySelector('#generatorBreakDuration'),
@@ -165,12 +168,14 @@ const refs = {
   generatorWeekdays: document.querySelector('#generatorWeekdays'),
   generatorFiles: document.querySelector('#generatorFiles'),
   analyzeGeneratorPdfs: document.querySelector('#analyzeGeneratorPdfs'),
+  ocrGeneratorPdfs: document.querySelector('#ocrGeneratorPdfs'),
   downloadPdfMarkdown: document.querySelector('#downloadPdfMarkdown'),
   generatorPdfReview: document.querySelector('#generatorPdfReview'),
   generatorPdfReviewList: document.querySelector('#generatorPdfReviewList'),
   generatorPdfReviewCount: document.querySelector('#generatorPdfReviewCount'),
   generatorPdfMarkdown: document.querySelector('#generatorPdfMarkdown'),
   generatorFileStatus: document.querySelector('#generatorFileStatus'),
+  generatorCapacityNote: document.querySelector('#generatorCapacityNote'),
   generatorSummary: document.querySelector('#generatorSummary'),
   downloadGeneratedPlan: document.querySelector('#downloadGeneratedPlan'),
   testForm: document.querySelector('#testForm'),
@@ -546,6 +551,18 @@ function renderProgressTracking() {
 
   refs.progressSummary.innerHTML = `<div class="progress-metric"><strong>${completionRate}%</strong><span>cumplimiento</span></div><div class="progress-metric"><strong>${completedMinutes}/${plannedMinutes}</strong><span>min completados</span></div><div class="progress-metric"><strong>${pendingTasks}</strong><span>pendientes</span></div>`;
 
+  const subjectStats = new Map();
+  weekTasks.forEach((task) => {
+    const current = subjectStats.get(task.subject) || { planned: 0, completed: 0 };
+    current.planned += Number(task.duration || 0);
+    if (task.completed || task.status === 'completado') current.completed += Number(task.duration || 0);
+    subjectStats.set(task.subject, current);
+  });
+  refs.progressSubjectBreakdown.innerHTML = [...subjectStats.entries()].sort(([, first], [, second]) => second.planned - first.planned).slice(0, 8).map(([subject, stats]) => {
+    const rate = stats.planned ? Math.round((stats.completed / stats.planned) * 100) : 0;
+    return `<div class="progress-subject-row"><strong>${escapeHtml(subject)}</strong><span>${rate}% · ${stats.completed}/${stats.planned} min</span><div class="progress-subject-bar"><i style="width:${Math.min(100, rate)}%"></i></div></div>`;
+  }).join('');
+
   const suggestions = [];
   if (!weekTasks.length) {
     suggestions.push('Aún no hay tareas en esta semana. Genera o importa un plan para comenzar la trazabilidad.');
@@ -562,6 +579,44 @@ function renderProgressTracking() {
   if (pendingReviews) suggestions.push(`Hay ${pendingReviews} errores marcados para repaso: prioriza corrección y práctica sobre releer teoría.`);
   if (accuracy !== null && accuracy < 75) suggestions.push(`La precisión de los tests es del ${accuracy}%. Añade preguntas y simulacros de los temas con más fallos antes de avanzar.`);
   refs.progressSuggestions.innerHTML = suggestions.map((suggestion) => `<p>${suggestion}</p>`).join('');
+}
+
+function reschedulePendingTasks() {
+  const today = formatDate(new Date());
+  const pending = state.tasks.filter((task) => task.date < today && !task.completed && task.status !== 'completado').sort((first, second) => `${first.date}${first.startTime}`.localeCompare(`${second.date}${second.startTime}`));
+  if (!pending.length) {
+    alert('No hay tareas atrasadas pendientes de replanificar.');
+    return;
+  }
+  if (!window.confirm(`Se replanificarán ${pending.length} tareas atrasadas en días laborables, sin superar 3 horas diarias. ¿Continuar?`)) return;
+
+  const capacity = 180;
+  const usage = new Map();
+  state.tasks.filter((task) => task.date >= today && !pending.includes(task)).forEach((task) => usage.set(task.date, (usage.get(task.date) || 0) + Number(task.duration || 0)));
+  let cursor = new Date(`${today}T00:00:00`);
+  pending.forEach((task) => {
+    let assigned = false;
+    for (let attempts = 0; attempts < 365 && !assigned; attempts += 1) {
+      const date = formatDate(cursor);
+      if (cursor.getDay() >= 1 && cursor.getDay() <= 5) {
+        const used = usage.get(date) || 0;
+        const duration = Number(task.duration || 45);
+        if (used + duration <= capacity) {
+          task.date = date;
+          task.startTime = minutesToTime(9 * 60 + used);
+          task.status = 'planificado';
+          usage.set(date, used + duration);
+          assigned = true;
+        }
+      }
+      if (!assigned) cursor.setDate(cursor.getDate() + 1);
+    }
+  });
+  saveData(STORAGE_KEYS.tasks, state.tasks);
+  renderStats();
+  renderCalendar();
+  updateNoteTaskOptions();
+  alert(`${pending.length} tareas replanificadas sin sobrecargar los días laborables.`);
 }
 
 function renderCalendar() {
@@ -1336,11 +1391,51 @@ async function analyzeGeneratorPdfs() {
     refs.generatorFileStatus.textContent = generatorPdfTopics.length
       ? `${generatorPdfTopics.length} temas detectados. Revisa el índice antes de generar.`
       : 'No se detectaron temas. Este PDF puede ser un escaneado sin texto seleccionable.';
+    refs.ocrGeneratorPdfs.hidden = Boolean(generatorPdfTopics.length);
   } catch (error) {
     refs.generatorFileStatus.textContent = '';
     alert(error.message || 'No se pudo analizar el PDF.');
   } finally {
     refs.analyzeGeneratorPdfs.disabled = false;
+  }
+}
+
+async function runGeneratorPdfOcr() {
+  const [file] = [...refs.generatorFiles.files];
+  if (!file) return;
+  refs.ocrGeneratorPdfs.disabled = true;
+  refs.generatorFileStatus.textContent = 'Preparando OCR opcional...';
+  try {
+    const pdfjs = await import('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.mjs');
+    const tesseract = await import('https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.esm.min.js');
+    const pdf = await pdfjs.getDocument({ data: await file.arrayBuffer() }).promise;
+    const worker = await tesseract.createWorker('spa');
+    const pages = [];
+    const limit = Math.min(pdf.numPages, 80);
+    for (let pageNumber = 1; pageNumber <= limit; pageNumber += 1) {
+      const page = await pdf.getPage(pageNumber);
+      const viewport = page.getViewport({ scale: 1.45 });
+      const canvas = document.createElement('canvas');
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+      const result = await worker.recognize(canvas);
+      pages.push(result.data.text.replace(/\s+/g, ' ').trim());
+      refs.generatorFileStatus.textContent = `OCR en curso · página ${pageNumber}/${limit}...`;
+    }
+    await worker.terminate();
+    await pdf.destroy();
+    const pdfData = { pages, text: pages.join('\n'), pageCount: limit };
+    const syllabus = getCourseSyllabusOptions()[0] || { name: file.name.replace(/\.pdf$/i, ''), topicCount: 200 };
+    generatorPdfTopics = topicsFromPdf(pdfData, file.name, syllabus.topicCount).map((topic, index) => ({ ...topic, syllabusIndex: 0, syllabus: syllabus.name, number: index + 1, endPage: topic.startPage + topic.pages - 1, include: true }));
+    refreshPdfReview();
+    refs.ocrGeneratorPdfs.hidden = true;
+    refs.generatorFileStatus.textContent = generatorPdfTopics.length ? `${generatorPdfTopics.length} temas detectados mediante OCR. Revisa el índice antes de generar.` : 'El OCR no detectó encabezados de temas.';
+  } catch (error) {
+    refs.generatorFileStatus.textContent = '';
+    alert('No se pudo ejecutar el OCR. Comprueba tu conexión y que el PDF no sea demasiado grande.');
+  } finally {
+    refs.ocrGeneratorPdfs.disabled = false;
   }
 }
 
@@ -1429,8 +1524,10 @@ function enrichTopicForPlanning(topic, options, index) {
   const syllabusFactor = options.courseType === 'oposiciones' ? 1.18 : options.courseType === 'master' ? 1.12 : 1.05;
   const ageFactor = options.age > 30 ? 1 + (options.age - 30) * 0.008 : 0.96;
   const capacityFactor = options.hours <= 2 ? 0.92 : options.hours >= 5 ? 1.16 : 1.05;
+  const averageSessions = Number(options.classWeightAverage) || Number(topic.classesPerWeek) || 1;
+  const classWeightFactor = Math.max(0.8, Math.min(1.35, (Number(topic.classesPerWeek) || averageSessions) / averageSessions));
   const priorityBoost = pressure > 20 ? 1.18 : pressure > 10 ? 1.1 : 1;
-  const refinedMinutes = Math.max(45, Math.round(baseMinutes * difficultyFactor * syllabusFactor * ageFactor * capacityFactor * priorityBoost / 5) * 5);
+  const refinedMinutes = Math.max(45, Math.round(baseMinutes * difficultyFactor * syllabusFactor * ageFactor * capacityFactor * priorityBoost * classWeightFactor / 5) * 5);
 
   return {
     ...topic,
@@ -1439,6 +1536,7 @@ function enrichTopicForPlanning(topic, options, index) {
     reviewWeight: Math.max(20, Math.round((pressure / 3) + (topic.difficulty === 'alta' ? 20 : topic.difficulty === 'media' ? 12 : 8))),
     questionMinutes: Math.max(20, Math.min(70, Math.round(refinedMinutes * 0.2 + (topic.difficulty === 'alta' ? 10 : 5)))),
     practiceMinutes: Math.max(25, Math.min(90, Math.round(refinedMinutes * 0.26 + (topic.difficulty === 'alta' ? 18 : 10)))),
+    classWeightFactor,
     position: index + 1,
   };
 }
@@ -1472,6 +1570,9 @@ function createGeneratorSchedule(topics, options) {
   const reviewUsage = new Map(reviewDates.map((date) => [date, 0]));
   const tasks = [];
   const firstStudyDates = new Map();
+  options.classWeightAverage = topics.length
+    ? topics.reduce((sum, topic) => sum + Number(topic.classesPerWeek || 1), 0) / topics.length
+    : 1;
 
   const pushTask = (title, subject, duration, date, priority = 'Media', difficulty = 'media', extraStatus = 'planificado') => {
     tasks.push({
@@ -1585,7 +1686,39 @@ function createGeneratorSchedule(topics, options) {
     assignReviewOnDay(targetDate, duration, `Repaso de errores: ${note.subject} · ${note.topic}`, note.subject, note.difficulty || 'media', 'Alta');
   });
 
+  (options.milestones || []).forEach((milestone) => {
+    if (milestone.date < options.startDate || milestone.date >= options.examDate) return;
+    tasks.push({
+      title: `Hito: ${milestone.title}`,
+      subject: 'Hitos',
+      duration: 30,
+      date: milestone.date,
+      startTime: '09:00',
+      priority: 'Alta',
+      difficulty: 'alta',
+      status: 'planificado',
+      completed: false,
+    });
+  });
+
   return { tasks, reviewStart, studyDates, reviewDates, reviewActions };
+}
+
+function parseGeneratorMilestones(value) {
+  return String(value || '').split(/\r?\n/).map((line) => {
+    const [date, ...titleParts] = line.split('|');
+    return { date: String(date || '').trim(), title: titleParts.join('|').trim() };
+  }).filter((milestone) => /^\d{4}-\d{2}-\d{2}$/.test(milestone.date) && milestone.title);
+}
+
+function getGeneratorCapacityReport(topics, options) {
+  const reviewStart = addDays(options.examDate, -21);
+  const studyDates = getGeneratorDates(options.startDate, addDays(reviewStart, -1), options.weekdays);
+  const availableMinutes = studyDates.length * Math.round(options.hours * 60);
+  const preparedTopics = topics.map((topic, index) => enrichTopicForPlanning(topic, { ...options, classWeightAverage: topics.length ? topics.reduce((sum, item) => sum + Number(item.classesPerWeek || 1), 0) / topics.length : 1 }, index));
+  const estimatedMinutes = preparedTopics.reduce((sum, topic) => sum + topic.minutes + topic.questionMinutes + topic.practiceMinutes, 0) + (options.milestones?.length || 0) * 30;
+  const utilization = availableMinutes ? Math.round((estimatedMinutes / availableMinutes) * 100) : 100;
+  return { availableMinutes, estimatedMinutes, utilization, studyDays: studyDates.length };
 }
 
 function getRecommendedBreakPlan(hours, age, topics) {
@@ -1608,6 +1741,7 @@ async function generateStudyPlan(event) {
     breakMode: refs.generatorBreakMode.value,
     breakEvery: Number(refs.generatorBreakEvery.value),
     breakDuration: Number(refs.generatorBreakDuration.value),
+    milestones: parseGeneratorMilestones(refs.generatorMilestones.value),
     weekdays: new Set([...refs.generatorWeekdays.querySelectorAll('input:checked')].map((input) => Number(input.value))),
   };
   const syllabusOptions = getCourseSyllabusOptions();
@@ -1647,6 +1781,11 @@ async function generateStudyPlan(event) {
       options.breakDuration = recommendedBreak.duration;
     }
     const orderedTopics = orderTopicsByClasses(pdfTopics, syllabusOptions);
+    const capacityReport = getGeneratorCapacityReport(orderedTopics, options);
+    refs.generatorCapacityNote.hidden = false;
+    refs.generatorCapacityNote.classList.toggle('error', capacityReport.utilization > 100);
+    refs.generatorCapacityNote.textContent = `Capacidad antes del repaso final: ${capacityReport.estimatedMinutes} min estimados / ${capacityReport.availableMinutes} min disponibles (${capacityReport.utilization}%). ${capacityReport.utilization > 100 ? 'Reduce temas, aumenta días u horas, o amplía la fecha.' : 'Margen disponible suficiente para esta carga.'}`;
+    if (capacityReport.utilization > 100) throw new Error('La carga estimada supera la capacidad disponible antes de las tres semanas de repaso. Reduce temas, aumenta días u horas, o amplía la fecha.');
     const schedule = createGeneratorSchedule(orderedTopics, options);
     const lines = [
       '# Plan StudyFlow',
@@ -1666,7 +1805,7 @@ async function generateStudyPlan(event) {
     refs.planMarkdown.value = generatedPlanMarkdown;
     setLoadedPlanLabel('plan-generado.md');
     refs.downloadGeneratedPlan.disabled = false;
-    refs.generatorFileStatus.textContent = `${files.length ? `${files.length} PDF(s) analizado(s)` : 'Sin PDF'} · pausas ${options.breakEvery}/${options.breakDuration} min · clases ponderadas por temario.`;
+    refs.generatorFileStatus.textContent = `${files.length ? `${files.length} PDF(s) analizado(s)` : 'Sin PDF'} · pausas ${options.breakEvery}/${options.breakDuration} min · clases ponderadas por temario · ${options.milestones.length} hitos.`;
     refs.generatorSummary.hidden = false;
     refs.generatorSummary.innerHTML = `<strong>${pdfTopics.length} temas</strong> · ${schedule.tasks.length} bloques · ${schedule.studyDates.length} días de estudio · pausas ${options.breakEvery}/${options.breakDuration} · repaso del ${formatDisplayDate(schedule.reviewStart)} al ${formatDisplayDate(addDays(options.examDate, -1))}`;
     importPlanFromMarkdown(generatedPlanMarkdown, 'plan-generado.md');
@@ -1859,6 +1998,7 @@ refs.nextWeek.addEventListener('click', () => {
 if (refs.printWeekButton) refs.printWeekButton.addEventListener('click', printWeeklyPlan);
 if (refs.downloadWeekJpeg) refs.downloadWeekJpeg.addEventListener('click', downloadWeeklyJpeg);
 if (refs.downloadWeekWallpaper) refs.downloadWeekWallpaper.addEventListener('click', downloadWeeklyWallpaper);
+if (refs.reschedulePendingButton) refs.reschedulePendingButton.addEventListener('click', reschedulePendingTasks);
 
 refs.navButtons.forEach((button) => {
   button.addEventListener('click', () => {
@@ -1924,10 +2064,12 @@ if (refs.planGeneratorForm) {
     generatorPdfTopics = [];
     generatorPdfMarkdown = '';
     refs.generatorPdfReview.hidden = true;
+    refs.ocrGeneratorPdfs.hidden = true;
     refs.downloadPdfMarkdown.disabled = true;
     refs.generatorFileStatus.textContent = count ? `${count} PDF(s) listo(s) para analizar.` : '';
   });
   refs.analyzeGeneratorPdfs.addEventListener('click', analyzeGeneratorPdfs);
+  refs.ocrGeneratorPdfs.addEventListener('click', runGeneratorPdfOcr);
   refs.downloadPdfMarkdown.addEventListener('click', downloadPdfMarkdownFile);
   refs.generatorPdfReviewList.addEventListener('input', updatePdfReviewFromInputs);
   refs.generatorPdfReviewList.addEventListener('change', updatePdfReviewFromInputs);
@@ -1937,6 +2079,7 @@ if (refs.planGeneratorForm) {
     generatorPdfTopics = [];
     generatorPdfMarkdown = '';
     refs.generatorPdfReview.hidden = true;
+    refs.ocrGeneratorPdfs.hidden = true;
     refs.downloadPdfMarkdown.disabled = true;
     renderSyllabusDetails();
   });

@@ -675,6 +675,14 @@ button { cursor: pointer; }
 .progress-metric span { display: block; margin-top: 3px; color: var(--muted); font-size: 0.65rem; line-height: 1.15; }
 .progress-suggestions { display: flex; flex-direction: column; gap: 7px; }
 .progress-suggestions p { margin: 0; padding: 8px 9px; border-left: 3px solid var(--primary); background: rgba(238,105,88,0.07); color: var(--muted); font-size: 0.74rem; line-height: 1.4; }
+.progress-subject-breakdown { display: grid; gap: 6px; margin: 10px 0; }
+.progress-subject-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; font-size: 0.7rem; }
+.progress-subject-row strong { font-size: 0.7rem; }
+.progress-subject-bar { grid-column: 1 / -1; height: 5px; overflow: hidden; border-radius: 4px; background: var(--line); }
+.progress-subject-bar i { display: block; height: 100%; background: var(--secondary); }
+.generator-capacity-note { margin: 5px 0; padding: 8px 10px; border-radius: 8px; background: rgba(232,150,48,0.11); color: #8b5c12; font-size: 0.72rem; line-height: 1.35; }
+.generator-capacity-note.error { background: rgba(208,75,64,0.1); color: var(--danger); }
+.full { width: 100%; }
 
 .import-box-panel {
   background: rgba(238,105,88,0.035);
