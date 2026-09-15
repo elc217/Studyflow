@@ -332,7 +332,18 @@
           <article class="admin-stat"><span>Actividad registrada</span><strong id="adminActivityCount">--</strong></article>
           <article class="admin-stat"><span>Modelo de pago</span><strong>Preparado</strong></article>
         </div>
-        <p id="adminMessage" class="auth-message">El control de usuarios y pagos se ejecutará mediante funciones seguras de Supabase.</p>
+        <p id="adminMessage" class="auth-message">Gestiona usuarios y planes desde este panel.</p>
+        <div class="admin-toolbar">
+          <button id="refreshAdminButton" class="secondary-btn small" type="button">Actualizar usuarios</button>
+        </div>
+        <div class="admin-table-wrap">
+          <table class="admin-table">
+            <thead>
+              <tr><th>Usuario</th><th>Rol</th><th>Plan</th><th>Estado</th><th>Actividad</th><th>Acciones</th></tr>
+            </thead>
+            <tbody id="adminUsersList"></tbody>
+          </table>
+        </div>
       </div>
     </section>
 

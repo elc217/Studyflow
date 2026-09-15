@@ -151,6 +151,9 @@ const refs = {
   adminPanel: document.querySelector('#adminPanel'),
   adminUserCount: document.querySelector('#adminUserCount'),
   adminActivityCount: document.querySelector('#adminActivityCount'),
+  adminUsersList: document.querySelector('#adminUsersList'),
+  adminMessage: document.querySelector('#adminMessage'),
+  refreshAdminButton: document.querySelector('#refreshAdminButton'),
 };
 
 function loadData(key, fallback) {
@@ -246,12 +249,44 @@ function closeModal(panel) {
 
 async function loadAdminSummary() {
   if (!currentProfile || currentProfile.role !== 'admin' || !supabaseClient) return;
-  const [{ count: userCount }, { count: activityCount }] = await Promise.all([
-    supabaseClient.from('profiles').select('id', { count: 'exact', head: true }),
-    supabaseClient.from('usage_events').select('id', { count: 'exact', head: true }),
-  ]);
-  refs.adminUserCount.textContent = userCount ?? '--';
-  refs.adminActivityCount.textContent = activityCount ?? '--';
+  const { data, error } = await supabaseClient.rpc('admin_list_users');
+  if (error) {
+    refs.adminMessage.textContent = `No se pudo cargar la administración: ${error.message}`;
+    refs.adminMessage.classList.add('error');
+    return;
+  }
+  const users = data || [];
+  refs.adminUserCount.textContent = users.length;
+  refs.adminActivityCount.textContent = users.reduce((sum, user) => sum + Number(user.activity_count || 0), 0);
+  refs.adminUsersList.innerHTML = users.map((user) => `
+    <tr data-admin-user-id="${user.id}">
+      <td><strong>${user.display_name || 'Sin nombre'}</strong><small>${user.email || ''}</small></td>
+      <td><select data-admin-field="role"><option value="user" ${user.role === 'user' ? 'selected' : ''}>Usuario</option><option value="admin" ${user.role === 'admin' ? 'selected' : ''}>Admin</option></select></td>
+      <td><select data-admin-field="plan"><option value="free" ${user.plan === 'free' ? 'selected' : ''}>Free</option><option value="trial" ${user.plan === 'trial' ? 'selected' : ''}>Prueba</option><option value="paid" ${user.plan === 'paid' ? 'selected' : ''}>Pago</option></select></td>
+      <td><select data-admin-field="status"><option value="active" ${user.status !== 'suspended' ? 'selected' : ''}>Activo</option><option value="suspended" ${user.status === 'suspended' ? 'selected' : ''}>Suspendido</option></select></td>
+      <td>${user.activity_count || 0}</td>
+      <td class="admin-actions"><button class="ghost-btn small" data-admin-action="save" type="button">Guardar</button><button class="ghost-btn small danger-btn" data-admin-action="delete" type="button">Eliminar</button></td>
+    </tr>
+  `).join('');
+}
+
+async function updateAdminUser(userId, row) {
+  const role = row.querySelector('[data-admin-field="role"]').value;
+  const plan = row.querySelector('[data-admin-field="plan"]').value;
+  const status = row.querySelector('[data-admin-field="status"]').value;
+  const { error } = await supabaseClient.rpc('admin_update_user', { target_user_id: userId, new_role: role, new_plan: plan, new_status: status });
+  refs.adminMessage.textContent = error ? `No se pudo actualizar: ${error.message}` : 'Usuario actualizado correctamente.';
+  refs.adminMessage.classList.toggle('error', Boolean(error));
+  if (!error) await loadAdminSummary();
+}
+
+async function deleteAdminUser(userId, row) {
+  const email = row.querySelector('small')?.textContent || 'este usuario';
+  if (!window.confirm(`¿Eliminar definitivamente a ${email}?`)) return;
+  const { error } = await supabaseClient.rpc('admin_delete_user', { target_user_id: userId });
+  refs.adminMessage.textContent = error ? `No se pudo eliminar: ${error.message}` : 'Usuario eliminado correctamente.';
+  refs.adminMessage.classList.toggle('error', Boolean(error));
+  if (!error) await loadAdminSummary();
 }
 
 function setAuthMessage(message, isError = false) {
@@ -1129,6 +1164,14 @@ if (refs.manualButton) refs.manualButton.addEventListener('click', () => openMod
 if (refs.adminButton) refs.adminButton.addEventListener('click', async () => {
   openModal(refs.adminPanel);
   await loadAdminSummary();
+});
+if (refs.refreshAdminButton) refs.refreshAdminButton.addEventListener('click', loadAdminSummary);
+if (refs.adminUsersList) refs.adminUsersList.addEventListener('click', async (event) => {
+  const action = event.target.closest('[data-admin-action]');
+  const row = event.target.closest('[data-admin-user-id]');
+  if (!action || !row) return;
+  if (action.dataset.adminAction === 'save') await updateAdminUser(row.dataset.adminUserId, row);
+  if (action.dataset.adminAction === 'delete') await deleteAdminUser(row.dataset.adminUserId, row);
 });
 document.querySelectorAll('[data-close-modal]').forEach((button) => {
   button.addEventListener('click', () => closeModal(document.querySelector(`#${button.dataset.closeModal}`)));
