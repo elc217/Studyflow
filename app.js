@@ -1279,46 +1279,143 @@ function orderTopicsByClasses(topics, syllabusOptions) {
   return ordered;
 }
 
+function getSubjectErrorPressure(subject) {
+  const notes = state.notes.filter((note) => note.subject === subject);
+  const tests = state.tests.filter((test) => test.subject === subject);
+  const noteWeight = notes.reduce((sum, note) => sum + (note.difficulty === 'alta' ? 5 : note.difficulty === 'media' ? 3 : 1) + (note.needsReview ? 2 : 0), 0);
+  const incorrect = tests.reduce((sum, test) => sum + Number(test.incorrect || 0), 0);
+  const totalAnswered = tests.reduce((sum, test) => sum + Number(test.correct || 0) + Number(test.incorrect || 0), 0);
+  const accuracy = totalAnswered ? 1 - incorrect / totalAnswered : 0.9;
+  return noteWeight + incorrect * 8 + (accuracy < 0.7 ? 12 : accuracy < 0.85 ? 8 : 3);
+}
+
+function enrichTopicForPlanning(topic, options, index) {
+  const pressure = getSubjectErrorPressure(topic.syllabus || topic.subject || 'General');
+  const baseMinutes = estimateTopicMinutes(topic, options.age) || 60;
+  const difficultyFactor = { baja: 0.9, media: 1.1, alta: 1.32 }[topic.difficulty] || 1;
+  const syllabusFactor = options.courseType === 'oposiciones' ? 1.18 : 1.05;
+  const ageFactor = options.age > 30 ? 1 + (options.age - 30) * 0.008 : 0.96;
+  const capacityFactor = options.hours <= 2 ? 0.92 : options.hours >= 5 ? 1.16 : 1.05;
+  const priorityBoost = pressure > 20 ? 1.18 : pressure > 10 ? 1.1 : 1;
+  const refinedMinutes = Math.max(45, Math.round(baseMinutes * difficultyFactor * syllabusFactor * ageFactor * capacityFactor * priorityBoost / 5) * 5);
+
+  return {
+    ...topic,
+    minutes: refinedMinutes,
+    pressure,
+    reviewWeight: Math.max(20, Math.round((pressure / 3) + (topic.difficulty === 'alta' ? 20 : topic.difficulty === 'media' ? 12 : 8))),
+    questionMinutes: Math.max(20, Math.min(70, Math.round(refinedMinutes * 0.2 + (topic.difficulty === 'alta' ? 10 : 5)))),
+    practiceMinutes: Math.max(25, Math.min(90, Math.round(refinedMinutes * 0.26 + (topic.difficulty === 'alta' ? 18 : 10)))),
+    position: index + 1,
+  };
+}
+
+function splitIntoChunks(totalMinutes, dailyCapacity, breakEvery) {
+  const chunks = [];
+  let remaining = totalMinutes;
+  while (remaining > 0) {
+    const maxChunk = Math.min(remaining, Math.max(15, Math.min(dailyCapacity, breakEvery)));
+    chunks.push(maxChunk);
+    remaining -= maxChunk;
+  }
+  return chunks;
+}
+
 function createGeneratorSchedule(topics, options) {
   const reviewStart = addDays(options.examDate, -21);
   const studyDates = getGeneratorDates(options.startDate, addDays(reviewStart, -1), options.weekdays);
   const reviewDates = getGeneratorDates(reviewStart, addDays(options.examDate, -1), options.weekdays);
   if (!studyDates.length || !reviewDates.length) throw new Error('No hay días disponibles suficientes con la disposición semanal elegida.');
 
-  const tasks = [];
-  let dateIndex = 0;
-  let workMinutes = 0;
-  let elapsedMinutes = 0;
   const dailyCapacity = Math.round(options.hours * 60);
+  const dayUsage = new Map(studyDates.map((date) => [date, 0]));
+  const reviewUsage = new Map(reviewDates.map((date) => [date, 0]));
+  const tasks = [];
   const firstStudyDates = new Map();
 
-  const addWork = (minutes, title, subject, difficulty, priority, dates, onFirstBlock) => {
-    while (minutes > 0) {
-      if (dateIndex >= dates.length) throw new Error('La carga estimada no cabe antes de las tres semanas de repaso. Aumenta horas/días o reduce temas.');
-      const date = dates[dateIndex];
-      if (workMinutes >= dailyCapacity) { dateIndex += 1; workMinutes = 0; elapsedMinutes = 0; continue; }
-      if (workMinutes > 0 && workMinutes % options.breakEvery === 0) elapsedMinutes += options.breakDuration;
-      const available = dailyCapacity - workMinutes;
-      const sessionLimit = options.breakEvery - (workMinutes % options.breakEvery || 0);
-      const chunk = Math.min(minutes, available, sessionLimit);
-      if (chunk < 15) { dateIndex += 1; workMinutes = 0; elapsedMinutes = 0; continue; }
-      tasks.push({ title, subject, duration: chunk, date, startTime: minutesToTime(9 * 60 + elapsedMinutes), priority, difficulty, status: 'planificado', completed: false });
-      if (onFirstBlock) onFirstBlock(date);
-      minutes -= chunk;
-      workMinutes += chunk;
-      elapsedMinutes += chunk;
+  const pushTask = (title, subject, duration, date, priority = 'Media', difficulty = 'media', extraStatus = 'planificado') => {
+    tasks.push({
+      title,
+      subject,
+      duration,
+      date,
+      startTime: minutesToTime(9 * 60 + (dayUsage.get(date) || 0)),
+      priority,
+      difficulty,
+      status: extraStatus,
+      completed: false,
+    });
+    dayUsage.set(date, (dayUsage.get(date) || 0) + Number(duration || 0));
+  };
+
+  const assignToStudyDay = (duration, title, subject, difficulty, priority, callback) => {
+    let remaining = duration;
+    let dateIndex = 0;
+    while (remaining > 0) {
+      const date = studyDates[dateIndex];
+      if (!date) throw new Error('La carga estimada no cabe antes de las tres semanas de repaso. Aumenta horas/días o reduce temas.');
+      const used = dayUsage.get(date) || 0;
+      const free = Math.max(0, dailyCapacity - used);
+      if (free <= 0) {
+        dateIndex += 1;
+        continue;
+      }
+      const chunkLimit = free >= 15 ? Math.min(free, Math.max(15, options.breakEvery)) : free;
+      const safeChunk = Math.max(0, Math.min(remaining, chunkLimit));
+      if (safeChunk <= 0) {
+        dateIndex += 1;
+        continue;
+      }
+      const safeDate = date;
+      if (callback && !firstStudyDates.has(`${subject}|${title}`)) callback(safeDate);
+      pushTask(title, subject, safeChunk, safeDate, priority, difficulty);
+      remaining -= safeChunk;
+      if (remaining > 0) {
+        dateIndex += 1;
+      }
     }
   };
 
-  topics.forEach((topic) => {
-    const key = `${topic.syllabus}|${topic.title}`;
-    addWork(topic.minutes, topic.title, topic.syllabus, topic.difficulty, topic.difficulty === 'alta' ? 'Alta' : 'Media', studyDates, (date) => {
-      if (!firstStudyDates.has(key)) firstStudyDates.set(key, date);
+  const assignReviewOnDay = (date, duration, title, subject, difficulty, priority) => {
+    const used = reviewUsage.get(date) || 0;
+    const free = Math.max(0, dailyCapacity - used);
+    if (free <= 0 || duration <= 0) return false;
+    const chunk = Math.min(duration, Math.max(15, free));
+    tasks.push({
+      title,
+      subject,
+      duration: chunk,
+      date,
+      startTime: minutesToTime(9 * 60 + used),
+      priority,
+      difficulty,
+      status: 'planificado',
+      completed: false,
     });
-    const questionMinutes = topic.difficulty === 'alta' ? 40 : topic.difficulty === 'media' ? 30 : 20;
-    const practicalMinutes = topic.difficulty === 'alta' ? 50 : topic.difficulty === 'media' ? 40 : 30;
-    addWork(questionMinutes, `Preguntas obligatorias: ${topic.title} · test y recuerdo activo`, topic.syllabus, topic.difficulty, 'Alta', studyDates);
-    addWork(practicalMinutes, `Supuesto práctico obligatorio: ${topic.title} · aplicar y justificar`, topic.syllabus, topic.difficulty, 'Alta', studyDates);
+    reviewUsage.set(date, used + chunk);
+    return true;
+  };
+
+  const preparedTopics = topics.map((topic, index) => enrichTopicForPlanning(topic, options, index));
+  preparedTopics.forEach((topic) => {
+    const key = `${topic.syllabus}|${topic.title}`;
+    assignToStudyDay(topic.minutes, topic.title, topic.syllabus, topic.difficulty, topic.difficulty === 'alta' ? 'Alta' : 'Media', (date) => {
+      firstStudyDates.set(key, date);
+    });
+
+    const questionMinutes = Math.max(20, Math.min(70, topic.questionMinutes));
+    assignToStudyDay(questionMinutes, `Test y recuerdo activo: ${topic.title}`, topic.syllabus, topic.difficulty, 'Alta', null);
+
+    const practiceMinutes = Math.max(25, Math.min(90, topic.practiceMinutes));
+    assignToStudyDay(practiceMinutes, `Supuesto práctico obligatorio: ${topic.title}`, topic.syllabus, topic.difficulty, 'Alta', null);
+
+    const errorReviewMinutes = Math.max(20, Math.round(topic.reviewWeight / 2));
+    if (errorReviewMinutes > 0) {
+      const reviewDate = reviewDates.find((date) => (reviewUsage.get(date) || 0) + errorReviewMinutes <= dailyCapacity);
+      if (reviewDate) {
+        assignReviewOnDay(reviewDate, errorReviewMinutes, `Corrección de errores: ${topic.title}`, topic.syllabus, 'media', 'Alta');
+      }
+    }
   });
 
   const reviewActions = [
@@ -1328,24 +1425,26 @@ function createGeneratorSchedule(topics, options) {
     { days: 14, label: 'Test: comprueba si lo recuperas', minutes: 35 },
     { days: 21, label: 'Repaso final: síntesis y simulacro', minutes: 40 },
   ];
-  const reviewCandidates = getGeneratorDates(options.startDate, addDays(options.examDate, -1), options.weekdays);
-  const reviewUsage = new Map();
-  tasks.forEach((task) => reviewUsage.set(task.date, (reviewUsage.get(task.date) || 0) + Number(task.duration || 0)));
-  topics.forEach((topic) => {
-    const studyDate = firstStudyDates.get(`${topic.syllabus}|${topic.title}`);
-    if (!studyDate) return;
+
+  preparedTopics.forEach((topic) => {
+    const firstDate = firstStudyDates.get(`${topic.syllabus}|${topic.title}`);
+    if (!firstDate) return;
     reviewActions.forEach((action) => {
-      const target = addDays(studyDate, action.days);
-      const reviewDate = reviewCandidates.find((date) => date >= target && date < options.examDate && (reviewUsage.get(date) || 0) < dailyCapacity);
-      if (!reviewDate || reviewDate >= options.examDate) return;
-      const usedMinutes = reviewUsage.get(reviewDate) || 0;
-      const available = dailyCapacity - usedMinutes;
-      if (available < 15) return;
-      const duration = Math.min(action.minutes, Math.max(15, Math.round(available / 5) * 5));
-      tasks.push({ title: `Repaso ${action.days}d: ${topic.title} · ${action.label}`, subject: topic.syllabus, duration, date: reviewDate, startTime: minutesToTime(9 * 60 + usedMinutes), priority: 'Alta', difficulty: 'media', status: 'planificado', completed: false });
-      reviewUsage.set(reviewDate, usedMinutes + duration);
+      const targetDate = addDays(firstDate, action.days);
+      const reviewDate = reviewDates.find((date) => date >= targetDate && (reviewUsage.get(date) || 0) + action.minutes <= dailyCapacity);
+      if (!reviewDate) return;
+      assignReviewOnDay(reviewDate, action.minutes, `Repaso ${action.days}d: ${topic.title} · ${action.label}`, topic.syllabus, 'media', 'Alta');
     });
   });
+
+  const backlog = state.notes.filter((note) => note.needsReview).slice(0, 8);
+  backlog.forEach((note, index) => {
+    const targetDate = reviewDates[index % reviewDates.length];
+    if (!targetDate) return;
+    const duration = Math.max(20, note.difficulty === 'alta' ? 40 : note.difficulty === 'media' ? 30 : 20);
+    assignReviewOnDay(targetDate, duration, `Repaso de errores: ${note.subject} · ${note.topic}`, note.subject, note.difficulty || 'media', 'Alta');
+  });
+
   return { tasks, reviewStart, studyDates, reviewDates, reviewActions };
 }
 
@@ -1363,6 +1462,7 @@ async function generateStudyPlan(event) {
     examDate: refs.generatorExamDate.value,
     age: Number(refs.generatorAge.value),
     hours: Number(refs.generatorHours.value),
+    courseType: refs.generatorCourseType.value,
     syllabusCount: Number(refs.generatorSyllabi.value),
     topicCount: Number(refs.generatorTopics.value),
     breakMode: refs.generatorBreakMode.value,
@@ -1370,7 +1470,7 @@ async function generateStudyPlan(event) {
     breakDuration: Number(refs.generatorBreakDuration.value),
     weekdays: new Set([...refs.generatorWeekdays.querySelectorAll('input:checked')].map((input) => Number(input.value))),
   };
-  const syllabusOptions = getSyllabusOptions();
+  const syllabusOptions = getCourseSyllabusOptions();
   const totalDays = dateDifferenceInDays(options.startDate, options.examDate);
   if (totalDays < 22) { alert('El examen debe estar al menos a 22 días del comienzo para reservar 3 semanas completas de repaso.'); return; }
   if (!options.weekdays.size) { alert('Selecciona al menos un día semanal de estudio.'); return; }
@@ -1379,6 +1479,7 @@ async function generateStudyPlan(event) {
   try {
     const files = [...refs.generatorFiles.files];
     const pdfTopics = [];
+    const subjectPressureMap = new Map();
     for (let index = 0; index < syllabusOptions.length; index += 1) {
       const syllabus = syllabusOptions[index];
       const file = files[index];
@@ -1390,6 +1491,7 @@ async function generateStudyPlan(event) {
         topic.difficulty = classifyTopicDifficulty(topic.title, topic.sourceText);
         topic.minutes = estimateTopicMinutes(topic, options.age);
         pdfTopics.push(topic);
+        subjectPressureMap.set(syllabus.name, (subjectPressureMap.get(syllabus.name) || 0) + getSubjectErrorPressure(syllabus.name));
       }
     }
     const recommendedBreak = getRecommendedBreakPlan(options.hours, options.age, pdfTopics);
@@ -1401,8 +1503,16 @@ async function generateStudyPlan(event) {
     const schedule = createGeneratorSchedule(orderedTopics, options);
     const lines = [
       '# Plan StudyFlow',
-      `<!-- Generado: ${formatDate(new Date())} | Examen: ${options.examDate} | Repaso desde: ${schedule.reviewStart} -->`,
+      `<!-- Generado: ${formatDate(new Date())} | Tipo: ${options.courseType} | Examen: ${options.examDate} | Repaso desde: ${schedule.reviewStart} -->`,
       '',
+      `## Curso: ${refs.generatorCourseType.options[refs.generatorCourseType.selectedIndex]?.text || 'Curso'}`,
+      '',
+      ...(options.courseType === 'oposiciones' ? [
+        `- Temario general: ${refs.generatorGeneralTemario.value || 'Temario general'}`,
+        `- Temario específico: ${refs.generatorSpecificTemario.value || 'Temario específico'}`,
+        `- Índice de convocatoria: ${refs.generatorConvocatoriaIndex.value || 'No indicado'}`,
+        '',
+      ] : []),
       ...schedule.tasks.map((task) => `- [ ] ${task.title} | ${task.subject} | ${task.duration} | ${task.date} | ${task.startTime} | ${task.priority}`),
     ];
     generatedPlanMarkdown = lines.join('\n');
