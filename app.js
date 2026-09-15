@@ -121,6 +121,20 @@ const refs = {
   restoreBackupButton: document.querySelector('#restoreBackupButton'),
   backupFileInput: document.querySelector('#backupFileInput'),
   loadedPlanLabel: document.querySelector('#loadedPlanLabel'),
+  planGeneratorForm: document.querySelector('#planGeneratorForm'),
+  generatorStartDate: document.querySelector('#generatorStartDate'),
+  generatorExamDate: document.querySelector('#generatorExamDate'),
+  generatorAge: document.querySelector('#generatorAge'),
+  generatorHours: document.querySelector('#generatorHours'),
+  generatorSyllabi: document.querySelector('#generatorSyllabi'),
+  generatorTopics: document.querySelector('#generatorTopics'),
+  generatorBreakEvery: document.querySelector('#generatorBreakEvery'),
+  generatorBreakDuration: document.querySelector('#generatorBreakDuration'),
+  generatorWeekdays: document.querySelector('#generatorWeekdays'),
+  generatorFiles: document.querySelector('#generatorFiles'),
+  generatorFileStatus: document.querySelector('#generatorFileStatus'),
+  generatorSummary: document.querySelector('#generatorSummary'),
+  downloadGeneratedPlan: document.querySelector('#downloadGeneratedPlan'),
   testForm: document.querySelector('#testForm'),
   testHistoryList: document.querySelector('#testHistoryList'),
   accuracyMetric: document.querySelector('#accuracyMetric'),
@@ -902,6 +916,165 @@ function importPlanFromMarkdown(markdown, sourceName = '') {
   refs.planFileInput.value = '';
 }
 
+let generatedPlanMarkdown = '';
+
+function dateDifferenceInDays(start, end) {
+  const startDate = new Date(`${start}T00:00:00`);
+  const endDate = new Date(`${end}T00:00:00`);
+  return Math.round((endDate - startDate) / 86400000);
+}
+
+function getGeneratorDates(start, end, weekdays) {
+  const dates = [];
+  for (let cursor = new Date(`${start}T00:00:00`); formatDate(cursor) <= end; cursor.setDate(cursor.getDate() + 1)) {
+    if (weekdays.has(cursor.getDay())) dates.push(formatDate(cursor));
+  }
+  return dates;
+}
+
+function classifyTopicDifficulty(title, sourceText = '') {
+  const combined = `${title} ${sourceText}`.toLowerCase();
+  if (/ejercicio|problema|jurisprudencia|integral|demostraci|excepción|excepcion|avanzad|complej/.test(combined) || title.length > 72) return 'alta';
+  if (/introducción|introduccion|concepto|definición|definicion|fundamento|básic|basic/.test(combined) || title.length < 28) return 'baja';
+  return 'media';
+}
+
+function estimateTopicMinutes(topic, age) {
+  const difficultyFactor = { baja: 0.8, media: 1, alta: 1.35 }[topic.difficulty] || 1;
+  const ageFactor = age <= 25 ? 0.92 : 1 + Math.min(0.55, (age - 25) * 0.009);
+  return Math.round(Math.max(35, Math.min(240, 65 * difficultyFactor * ageFactor)) / 5) * 5;
+}
+
+async function extractPdfText(file) {
+  const pdfjs = await import('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.mjs');
+  const pdf = await pdfjs.getDocument({ data: await file.arrayBuffer() }).promise;
+  const pages = [];
+  for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+    const page = await pdf.getPage(pageNumber);
+    const content = await page.getTextContent();
+    pages.push(content.items.map((item) => item.str).join(' '));
+  }
+  return pages.join('\n');
+}
+
+function topicsFromPdf(text, fileName, fallbackCount) {
+  const topics = [];
+  const topicPattern = /(?:tema|unidad|bloque|cap[ií]tulo)\s*(\d{1,3})\s*[:.)-]?\s*([^\n]{3,120})/gi;
+  let match;
+  while ((match = topicPattern.exec(text)) && topics.length < 200) {
+    const title = match[2].replace(/\s+/g, ' ').trim();
+    if (title && !topics.some((topic) => topic.number === Number(match[1]))) topics.push({ number: Number(match[1]), title, sourceText: text });
+  }
+  if (!topics.length) {
+    const numberedLines = text.split(/\r?\n/).map((line) => line.trim()).filter((line) => /^\d{1,3}[.)-]\s+/.test(line));
+    numberedLines.slice(0, 200).forEach((line) => topics.push({ number: topics.length + 1, title: line.replace(/^\d{1,3}[.)-]\s+/, '').trim(), sourceText: text }));
+  }
+  return topics.slice(0, fallbackCount).map((topic, index) => ({ ...topic, title: topic.title || `Tema ${index + 1}`, syllabus: fileName.replace(/\.pdf$/i, '') }));
+}
+
+function createGeneratorSchedule(topics, options) {
+  const reviewStart = addDays(options.examDate, -21);
+  const studyDates = getGeneratorDates(options.startDate, addDays(reviewStart, -1), options.weekdays);
+  const reviewDates = getGeneratorDates(reviewStart, addDays(options.examDate, -1), options.weekdays);
+  if (!studyDates.length || !reviewDates.length) throw new Error('No hay días disponibles suficientes con la disposición semanal elegida.');
+
+  const tasks = [];
+  let dateIndex = 0;
+  let workMinutes = 0;
+  let elapsedMinutes = 0;
+  const dailyCapacity = Math.round(options.hours * 60);
+
+  const addWork = (minutes, title, subject, difficulty, priority, dates) => {
+    while (minutes > 0) {
+      if (dateIndex >= dates.length) throw new Error('La carga estimada no cabe antes de las tres semanas de repaso. Aumenta horas/días o reduce temas.');
+      const date = dates[dateIndex];
+      if (workMinutes >= dailyCapacity) { dateIndex += 1; workMinutes = 0; elapsedMinutes = 0; continue; }
+      if (workMinutes > 0 && workMinutes % options.breakEvery === 0) elapsedMinutes += options.breakDuration;
+      const available = dailyCapacity - workMinutes;
+      const sessionLimit = options.breakEvery - (workMinutes % options.breakEvery || 0);
+      const chunk = Math.min(minutes, available, sessionLimit);
+      if (chunk < 15) { dateIndex += 1; workMinutes = 0; elapsedMinutes = 0; continue; }
+      tasks.push({ title, subject, duration: chunk, date, startTime: minutesToTime(9 * 60 + elapsedMinutes), priority, difficulty, status: 'planificado', completed: false });
+      minutes -= chunk;
+      workMinutes += chunk;
+      elapsedMinutes += chunk;
+    }
+  };
+
+  topics.forEach((topic) => addWork(topic.minutes, topic.title, topic.syllabus, topic.difficulty, topic.difficulty === 'alta' ? 'Alta' : 'Media', studyDates));
+  dateIndex = 0;
+  workMinutes = 0;
+  elapsedMinutes = 0;
+  topics.forEach((topic) => addWork(35, `Repaso: ${topic.title}`, topic.syllabus, 'media', 'Alta', reviewDates));
+  return { tasks, reviewStart, studyDates, reviewDates };
+}
+
+async function generateStudyPlan(event) {
+  event.preventDefault();
+  const options = {
+    startDate: refs.generatorStartDate.value,
+    examDate: refs.generatorExamDate.value,
+    age: Number(refs.generatorAge.value),
+    hours: Number(refs.generatorHours.value),
+    syllabusCount: Number(refs.generatorSyllabi.value),
+    topicCount: Number(refs.generatorTopics.value),
+    breakEvery: Number(refs.generatorBreakEvery.value),
+    breakDuration: Number(refs.generatorBreakDuration.value),
+    weekdays: new Set([...refs.generatorWeekdays.querySelectorAll('input:checked')].map((input) => Number(input.value))),
+  };
+  const totalDays = dateDifferenceInDays(options.startDate, options.examDate);
+  if (totalDays < 22) { alert('El examen debe estar al menos a 22 días del comienzo para reservar 3 semanas completas de repaso.'); return; }
+  if (!options.weekdays.size) { alert('Selecciona al menos un día semanal de estudio.'); return; }
+
+  refs.generatorFileStatus.textContent = 'Analizando temarios y preparando estimaciones...';
+  try {
+    const files = [...refs.generatorFiles.files];
+    const pdfTopics = [];
+    for (let index = 0; index < options.syllabusCount; index += 1) {
+      const file = files[index];
+      let extractedText = '';
+      if (file) extractedText = await extractPdfText(file);
+      const syllabusName = file ? file.name.replace(/\.pdf$/i, '') : `Temario ${index + 1}`;
+      const found = file ? topicsFromPdf(extractedText, file.name, options.topicCount) : [];
+      for (let topicIndex = 0; topicIndex < options.topicCount; topicIndex += 1) {
+        const source = found[topicIndex] || { title: `Tema ${topicIndex + 1}`, sourceText: extractedText, syllabus: syllabusName };
+        const topic = { ...source, syllabus: source.syllabus || syllabusName };
+        topic.difficulty = classifyTopicDifficulty(topic.title, topic.sourceText);
+        topic.minutes = estimateTopicMinutes(topic, options.age);
+        pdfTopics.push(topic);
+      }
+    }
+    const schedule = createGeneratorSchedule(pdfTopics, options);
+    const lines = [
+      '# Plan StudyFlow',
+      `<!-- Generado: ${formatDate(new Date())} | Examen: ${options.examDate} | Repaso desde: ${schedule.reviewStart} -->`,
+      '',
+      ...schedule.tasks.map((task) => `- [ ] ${task.title} | ${task.subject} | ${task.duration} | ${task.date} | ${task.startTime} | ${task.priority}`),
+    ];
+    generatedPlanMarkdown = lines.join('\n');
+    refs.planMarkdown.value = generatedPlanMarkdown;
+    setLoadedPlanLabel('plan-generado.md');
+    refs.downloadGeneratedPlan.disabled = false;
+    refs.generatorFileStatus.textContent = files.length ? `${files.length} PDF(s) analizado(s).` : 'Plan generado con nombres de tema y dificultad estimada.';
+    refs.generatorSummary.hidden = false;
+    refs.generatorSummary.innerHTML = `<strong>${pdfTopics.length} temas</strong> · ${schedule.tasks.length} bloques · ${schedule.studyDates.length} días de estudio · repaso del ${formatDisplayDate(schedule.reviewStart)} al ${formatDisplayDate(addDays(options.examDate, -1))}`;
+    importPlanFromMarkdown(generatedPlanMarkdown, 'plan-generado.md');
+  } catch (error) {
+    refs.generatorFileStatus.textContent = '';
+    alert(error.message || 'No se pudo generar la planificación.');
+  }
+}
+
+function downloadGeneratedPlanFile() {
+  if (!generatedPlanMarkdown) return;
+  const url = URL.createObjectURL(new Blob([generatedPlanMarkdown], { type: 'text/markdown;charset=utf-8' }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `studyflow-plan-${formatDate(new Date())}.md`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
 function exportBackup() {
   const backup = { exportedAt: new Date().toISOString(), tasks: state.tasks, tests: state.tests, notes: state.notes };
   const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
@@ -1114,6 +1287,17 @@ refs.importPlanButton.addEventListener('click', () => {
   const label = refs.loadedPlanLabel.textContent;
   importPlanFromMarkdown(refs.planMarkdown.value, label === 'Sin archivo de planificación cargado' ? '' : label.replace('Plan activo: ', ''));
 });
+
+if (refs.planGeneratorForm) {
+  refs.generatorStartDate.value = formatDate(new Date());
+  refs.generatorExamDate.value = addDays(new Date(), 90);
+  refs.generatorFiles.addEventListener('change', () => {
+    const count = refs.generatorFiles.files.length;
+    refs.generatorFileStatus.textContent = count ? `${count} PDF(s) listo(s) para analizar.` : '';
+  });
+  refs.planGeneratorForm.addEventListener('submit', generateStudyPlan);
+  refs.downloadGeneratedPlan.addEventListener('click', downloadGeneratedPlanFile);
+}
 
 refs.exportBackupButton.addEventListener('click', exportBackup);
 refs.restoreBackupButton.addEventListener('click', () => refs.backupFileInput.click());

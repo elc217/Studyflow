@@ -660,6 +660,40 @@ button { cursor: pointer; }
   background: rgba(238,105,88,0.035);
 }
 
+.panel-help {
+  margin: -8px 0 14px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.weekday-picker {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.weekday-picker label {
+  display: grid;
+  place-items: center;
+  gap: 4px;
+  padding: 7px 2px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255,255,255,0.72);
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.weekday-picker input { accent-color: var(--primary); }
+.field-hint { color: var(--muted); font-size: 0.7rem; line-height: 1.35; }
+.generator-status { min-height: 18px; color: var(--secondary); font-size: 0.74rem; font-weight: 700; }
+.generator-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.generator-actions button { flex: 1 1 140px; }
+.generator-summary { margin-top: 14px; padding: 10px 12px; border-left: 3px solid var(--success); background: rgba(43,157,120,0.08); color: var(--muted); font-size: 0.76rem; line-height: 1.45; }
+.generator-summary strong { color: var(--text); }
+
 .import-actions {
   display: flex;
   flex-wrap: wrap;
