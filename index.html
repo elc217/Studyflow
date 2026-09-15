@@ -235,14 +235,19 @@
                 </div>
                 <div class="field-row">
                   <div class="field-group"><label for="generatorSyllabi">N.º temarios</label><input id="generatorSyllabi" type="number" min="1" max="20" value="1" required /></div>
-                  <div class="field-group"><label for="generatorTopics">Temas por temario</label><input id="generatorTopics" type="number" min="1" max="200" value="10" required /></div>
+                  <div class="field-group"><label for="generatorTopics">Temas por defecto</label><input id="generatorTopics" type="number" min="1" max="200" value="10" required /></div>
+                </div>
+                <div class="field-group"><label>Partes, clases semanales y temarios</label><div id="generatorSyllabusDetails" class="syllabus-details"></div><small class="field-hint">Asigna más clases semanales a la parte que deba recibir más presencia en el calendario.</small></div>
+                <div class="field-row">
+                  <div class="field-group"><label for="generatorBreakMode">Pausas</label><select id="generatorBreakMode"><option value="recommended" selected>Recomendadas</option><option value="custom">Personalizadas</option></select></div>
+                  <div class="field-group"><label for="generatorBreakEvery">Intervalo de trabajo (min)</label><input id="generatorBreakEvery" type="number" min="20" max="180" step="5" value="50" /></div>
                 </div>
                 <div class="field-row">
-                  <div class="field-group"><label for="generatorBreakEvery">Descanso cada (min)</label><select id="generatorBreakEvery"><option value="25">25</option><option value="50" selected>50</option><option value="90">90</option><option value="120">120</option></select></div>
-                  <div class="field-group"><label for="generatorBreakDuration">Duración descanso</label><select id="generatorBreakDuration"><option value="5">5 min</option><option value="10" selected>10 min</option><option value="15">15 min</option><option value="20">20 min</option></select></div>
+                  <div class="field-group"><label for="generatorBreakDuration">Duración pausa (min)</label><input id="generatorBreakDuration" type="number" min="5" max="30" step="5" value="10" /></div>
+                  <div class="field-group"><label for="generatorBreakNote">Criterio</label><input id="generatorBreakNote" value="50/10 recomendado" readonly /></div>
                 </div>
                 <div class="field-group"><label>Días disponibles</label><div class="weekday-picker" id="generatorWeekdays"><label><input type="checkbox" value="1" checked />L</label><label><input type="checkbox" value="2" checked />M</label><label><input type="checkbox" value="3" checked />X</label><label><input type="checkbox" value="4" checked />J</label><label><input type="checkbox" value="5" checked />V</label><label><input type="checkbox" value="6" />S</label><label><input type="checkbox" value="0" />D</label></div></div>
-                <div class="field-group"><label for="generatorFiles">Índices o temarios en PDF (opcional)</label><input id="generatorFiles" type="file" accept="application/pdf,.pdf" multiple /><small class="field-hint">Detecta nombres y número de temas del texto seleccionable del PDF.</small></div>
+                <div class="field-group"><label for="generatorFiles">Índices o temarios completos en PDF (opcional)</label><input id="generatorFiles" type="file" accept="application/pdf,.pdf" multiple /><small class="field-hint">Puedes subir índices o PDFs extensos; se analizan páginas, títulos detectados y tamaño aproximado de cada tema.</small></div>
                 <div id="generatorFileStatus" class="generator-status" role="status"></div>
                 <div class="generator-actions"><button class="primary-btn" type="submit">Generar plan</button><button id="downloadGeneratedPlan" class="ghost-btn" type="button" disabled>Descargar .md</button></div>
               </form>
@@ -357,8 +362,11 @@
             <li><strong>Resultado:</strong> pulsa <strong>Generar plan</strong>. Se importa automáticamente y queda disponible para descargar como Markdown.</li>
           </ol>
           <p>El generador reserva siempre los 21 días anteriores al examen para repasar. Si el periodo es demasiado corto o la carga no cabe con tu disponibilidad, solicita más tiempo, más horas o menos temas.</p>
+          <p><strong>Pausas:</strong> en modo <em>Recomendadas</em>, StudyFlow parte de pautas orientativas de hábitos de estudio usadas en contextos educativos: 25/5 para sesiones cortas, 50/10 como punto de partida y 45/10 cuando la carga, la edad o la dificultad aconsejan más frecuencia. No existe una única pauta oficial válida para todas las personas; puedes cambiar a <em>Personalizadas</em> e indicar exactamente el intervalo de trabajo y la duración de la pausa.</p>
+          <p><strong>Partes del curso:</strong> cada temario o parte tiene nombre, número de temas y clases semanales. Si una parte tiene tres clases y otra una, el plan intercala aproximadamente tres bloques de la primera por cada bloque de la segunda, manteniendo el total de contenido y el repaso final.</p>
           <h3>3. Cómo calcula el tiempo</h3>
           <p>La estimación parte de una duración base y la ajusta por dificultad. Los temas con términos complejos, problemas, excepciones o títulos extensos reciben más tiempo. La edad aplica un factor gradual: a partir de los 25 años aumenta moderadamente la duración estimada; no sustituye a tu propia experiencia ni pretende medir la capacidad de una persona.</p>
+          <p><strong>Temarios completos:</strong> sí, puedes subir PDFs extensos, no solo índices. StudyFlow lee el texto seleccionable página a página, detecta encabezados como “Tema 1”, “Unidad 2” o “Capítulo 3” y estima el tamaño de cada tema por el número aproximado de páginas hasta el siguiente encabezado. Si el PDF es un escaneado de imágenes o no tiene encabezados reconocibles, usará el número de temas indicado y una estimación genérica; en ese caso conviene revisar el resultado.</p>
           <p>Cada tema se divide en bloques respetando tus descansos. En las tres semanas finales se crea al menos un bloque de repaso por tema. Revisa la primera semana y modifica manualmente los bloques si tu experiencia real difiere.</p>
           <h3>4. Leer el calendario semanal</h3>
           <figure class="manual-figure"><img src="manual-calendar.svg" alt="Ejemplo visual de bloques en el calendario semanal" /><figcaption>Los colores distinguen sesiones planificadas, en curso y completadas; cada bloque muestra tema, duración y hora.</figcaption></figure>

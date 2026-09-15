@@ -19,6 +19,8 @@ Organizador visual de estudio con agenda semanal por horas, temporizador flexibl
 - Persistencia local mediante `localStorage`.
 - Sincronizacion multiusuario con Supabase y autenticacion por email.
 - Manual de usuario integrado y guia descargable en `manual-usuario-studyflow.pdf`.
+- Pausas recomendadas o personalizadas según horas, edad y dificultad.
+- Análisis página a página de temarios PDF completos y reparto por clases semanales de cada parte.
 
 ## Ejecutar localmente
 

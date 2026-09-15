@@ -128,8 +128,11 @@ const refs = {
   generatorHours: document.querySelector('#generatorHours'),
   generatorSyllabi: document.querySelector('#generatorSyllabi'),
   generatorTopics: document.querySelector('#generatorTopics'),
+  generatorSyllabusDetails: document.querySelector('#generatorSyllabusDetails'),
+  generatorBreakMode: document.querySelector('#generatorBreakMode'),
   generatorBreakEvery: document.querySelector('#generatorBreakEvery'),
   generatorBreakDuration: document.querySelector('#generatorBreakDuration'),
+  generatorBreakNote: document.querySelector('#generatorBreakNote'),
   generatorWeekdays: document.querySelector('#generatorWeekdays'),
   generatorFiles: document.querySelector('#generatorFiles'),
   generatorFileStatus: document.querySelector('#generatorFileStatus'),
@@ -942,7 +945,8 @@ function classifyTopicDifficulty(title, sourceText = '') {
 function estimateTopicMinutes(topic, age) {
   const difficultyFactor = { baja: 0.8, media: 1, alta: 1.35 }[topic.difficulty] || 1;
   const ageFactor = age <= 25 ? 0.92 : 1 + Math.min(0.55, (age - 25) * 0.009);
-  return Math.round(Math.max(35, Math.min(240, 65 * difficultyFactor * ageFactor)) / 5) * 5;
+  const pageFactor = topic.pages ? Math.max(45, Math.min(240, topic.pages * 18)) : 65;
+  return Math.round(Math.max(35, Math.min(300, pageFactor * difficultyFactor * ageFactor)) / 5) * 5;
 }
 
 async function extractPdfText(file) {
@@ -952,24 +956,63 @@ async function extractPdfText(file) {
   for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
     const page = await pdf.getPage(pageNumber);
     const content = await page.getTextContent();
-    pages.push(content.items.map((item) => item.str).join(' '));
+    pages.push(content.items.map((item) => item.str).join(' ').replace(/\s+/g, ' ').trim());
   }
-  return pages.join('\n');
+  return { pages, text: pages.join('\n'), pageCount: pdf.numPages };
 }
 
-function topicsFromPdf(text, fileName, fallbackCount) {
+function topicsFromPdf(pdfData, fileName, fallbackCount) {
+  const { pages, text, pageCount } = pdfData;
   const topics = [];
   const topicPattern = /(?:tema|unidad|bloque|cap[ií]tulo)\s*(\d{1,3})\s*[:.)-]?\s*([^\n]{3,120})/gi;
-  let match;
-  while ((match = topicPattern.exec(text)) && topics.length < 200) {
-    const title = match[2].replace(/\s+/g, ' ').trim();
-    if (title && !topics.some((topic) => topic.number === Number(match[1]))) topics.push({ number: Number(match[1]), title, sourceText: text });
-  }
+  pages.forEach((pageText, pageIndex) => {
+    let match;
+    while ((match = topicPattern.exec(pageText))) {
+      const title = match[2].replace(/\s+/g, ' ').trim();
+      if (title && !topics.some((topic) => topic.number === Number(match[1]))) topics.push({ number: Number(match[1]), title, sourceText: pageText, startPage: pageIndex + 1 });
+    }
+    topicPattern.lastIndex = 0;
+  });
   if (!topics.length) {
     const numberedLines = text.split(/\r?\n/).map((line) => line.trim()).filter((line) => /^\d{1,3}[.)-]\s+/.test(line));
-    numberedLines.slice(0, 200).forEach((line) => topics.push({ number: topics.length + 1, title: line.replace(/^\d{1,3}[.)-]\s+/, '').trim(), sourceText: text }));
+    numberedLines.slice(0, 200).forEach((line) => topics.push({ number: topics.length + 1, title: line.replace(/^\d{1,3}[.)-]\s+/, '').trim(), sourceText: text, startPage: 1 }));
   }
-  return topics.slice(0, fallbackCount).map((topic, index) => ({ ...topic, title: topic.title || `Tema ${index + 1}`, syllabus: fileName.replace(/\.pdf$/i, '') }));
+  const selected = topics.slice(0, fallbackCount);
+  return selected.map((topic, index) => {
+    const nextStart = selected[index + 1]?.startPage || pageCount + 1;
+    return { ...topic, title: topic.title || `Tema ${index + 1}`, pages: Math.max(1, nextStart - topic.startPage), syllabus: fileName.replace(/\.pdf$/i, '') };
+  });
+}
+
+function renderSyllabusDetails() {
+  const count = Math.max(1, Math.min(20, Number(refs.generatorSyllabi.value) || 1));
+  refs.generatorSyllabusDetails.innerHTML = Array.from({ length: count }, (_, index) => `
+    <div class="syllabus-row">
+      <input data-syllabus-name="${index}" type="text" value="Temario ${index + 1}" aria-label="Nombre del temario ${index + 1}" />
+      <input data-syllabus-topics="${index}" type="number" min="1" max="200" value="${Number(refs.generatorTopics.value) || 10}" aria-label="Temas del temario ${index + 1}" />
+      <input data-syllabus-classes="${index}" type="number" min="1" max="20" value="1" aria-label="Clases semanales del temario ${index + 1}" />
+      <span>temas · clases/sem.</span>
+    </div>`).join('');
+}
+
+function getSyllabusOptions() {
+  return [...refs.generatorSyllabusDetails.querySelectorAll('.syllabus-row')].map((row, index) => ({
+    name: row.querySelector(`[data-syllabus-name="${index}"]`).value.trim() || `Temario ${index + 1}`,
+    topicCount: Number(row.querySelector(`[data-syllabus-topics="${index}"]`).value) || Number(refs.generatorTopics.value) || 10,
+    classesPerWeek: Number(row.querySelector(`[data-syllabus-classes="${index}"]`).value) || 1,
+  }));
+}
+
+function orderTopicsByClasses(topics, syllabusOptions) {
+  const bySyllabus = syllabusOptions.map((syllabus) => topics.filter((topic) => topic.syllabus === syllabus.name));
+  const ordered = [];
+  while (bySyllabus.some((items) => items.length)) {
+    bySyllabus.forEach((items, index) => {
+      const weight = syllabusOptions[index].classesPerWeek;
+      for (let count = 0; count < weight && items.length; count += 1) ordered.push(items.shift());
+    });
+  }
+  return ordered;
 }
 
 function createGeneratorSchedule(topics, options) {
@@ -1009,6 +1052,13 @@ function createGeneratorSchedule(topics, options) {
   return { tasks, reviewStart, studyDates, reviewDates };
 }
 
+function getRecommendedBreakPlan(hours, age, topics) {
+  const hasHighDifficulty = topics.some((topic) => topic.difficulty === 'alta');
+  if (hours <= 1.5) return { every: 25, duration: 5, label: '25/5 para sesiones cortas' };
+  if (hours >= 4 || age >= 55 || hasHighDifficulty) return { every: 45, duration: 10, label: '45/10 para carga intensa' };
+  return { every: 50, duration: 10, label: '50/10 recomendado' };
+}
+
 async function generateStudyPlan(event) {
   event.preventDefault();
   const options = {
@@ -1018,10 +1068,12 @@ async function generateStudyPlan(event) {
     hours: Number(refs.generatorHours.value),
     syllabusCount: Number(refs.generatorSyllabi.value),
     topicCount: Number(refs.generatorTopics.value),
+    breakMode: refs.generatorBreakMode.value,
     breakEvery: Number(refs.generatorBreakEvery.value),
     breakDuration: Number(refs.generatorBreakDuration.value),
     weekdays: new Set([...refs.generatorWeekdays.querySelectorAll('input:checked')].map((input) => Number(input.value))),
   };
+  const syllabusOptions = getSyllabusOptions();
   const totalDays = dateDifferenceInDays(options.startDate, options.examDate);
   if (totalDays < 22) { alert('El examen debe estar al menos a 22 días del comienzo para reservar 3 semanas completas de repaso.'); return; }
   if (!options.weekdays.size) { alert('Selecciona al menos un día semanal de estudio.'); return; }
@@ -1030,21 +1082,26 @@ async function generateStudyPlan(event) {
   try {
     const files = [...refs.generatorFiles.files];
     const pdfTopics = [];
-    for (let index = 0; index < options.syllabusCount; index += 1) {
+    for (let index = 0; index < syllabusOptions.length; index += 1) {
+      const syllabus = syllabusOptions[index];
       const file = files[index];
-      let extractedText = '';
-      if (file) extractedText = await extractPdfText(file);
-      const syllabusName = file ? file.name.replace(/\.pdf$/i, '') : `Temario ${index + 1}`;
-      const found = file ? topicsFromPdf(extractedText, file.name, options.topicCount) : [];
-      for (let topicIndex = 0; topicIndex < options.topicCount; topicIndex += 1) {
-        const source = found[topicIndex] || { title: `Tema ${topicIndex + 1}`, sourceText: extractedText, syllabus: syllabusName };
-        const topic = { ...source, syllabus: source.syllabus || syllabusName };
+      const pdfData = file ? await extractPdfText(file) : { text: '', pages: [], pageCount: 0 };
+      const found = file ? topicsFromPdf(pdfData, file.name, syllabus.topicCount) : [];
+      for (let topicIndex = 0; topicIndex < syllabus.topicCount; topicIndex += 1) {
+        const source = found[topicIndex] || { title: `Tema ${topicIndex + 1}`, sourceText: pdfData.text, syllabus: syllabus.name };
+        const topic = { ...source, syllabus: syllabus.name, classesPerWeek: syllabus.classesPerWeek };
         topic.difficulty = classifyTopicDifficulty(topic.title, topic.sourceText);
         topic.minutes = estimateTopicMinutes(topic, options.age);
         pdfTopics.push(topic);
       }
     }
-    const schedule = createGeneratorSchedule(pdfTopics, options);
+    const recommendedBreak = getRecommendedBreakPlan(options.hours, options.age, pdfTopics);
+    if (options.breakMode === 'recommended') {
+      options.breakEvery = recommendedBreak.every;
+      options.breakDuration = recommendedBreak.duration;
+    }
+    const orderedTopics = orderTopicsByClasses(pdfTopics, syllabusOptions);
+    const schedule = createGeneratorSchedule(orderedTopics, options);
     const lines = [
       '# Plan StudyFlow',
       `<!-- Generado: ${formatDate(new Date())} | Examen: ${options.examDate} | Repaso desde: ${schedule.reviewStart} -->`,
@@ -1055,9 +1112,9 @@ async function generateStudyPlan(event) {
     refs.planMarkdown.value = generatedPlanMarkdown;
     setLoadedPlanLabel('plan-generado.md');
     refs.downloadGeneratedPlan.disabled = false;
-    refs.generatorFileStatus.textContent = files.length ? `${files.length} PDF(s) analizado(s).` : 'Plan generado con nombres de tema y dificultad estimada.';
+    refs.generatorFileStatus.textContent = `${files.length ? `${files.length} PDF(s) analizado(s)` : 'Sin PDF'} · pausas ${options.breakEvery}/${options.breakDuration} min · clases ponderadas por temario.`;
     refs.generatorSummary.hidden = false;
-    refs.generatorSummary.innerHTML = `<strong>${pdfTopics.length} temas</strong> · ${schedule.tasks.length} bloques · ${schedule.studyDates.length} días de estudio · repaso del ${formatDisplayDate(schedule.reviewStart)} al ${formatDisplayDate(addDays(options.examDate, -1))}`;
+    refs.generatorSummary.innerHTML = `<strong>${pdfTopics.length} temas</strong> · ${schedule.tasks.length} bloques · ${schedule.studyDates.length} días de estudio · pausas ${options.breakEvery}/${options.breakDuration} · repaso del ${formatDisplayDate(schedule.reviewStart)} al ${formatDisplayDate(addDays(options.examDate, -1))}`;
     importPlanFromMarkdown(generatedPlanMarkdown, 'plan-generado.md');
   } catch (error) {
     refs.generatorFileStatus.textContent = '';
@@ -1291,6 +1348,17 @@ refs.importPlanButton.addEventListener('click', () => {
 if (refs.planGeneratorForm) {
   refs.generatorStartDate.value = formatDate(new Date());
   refs.generatorExamDate.value = addDays(new Date(), 90);
+  renderSyllabusDetails();
+  const updateBreakMode = () => {
+    const isRecommended = refs.generatorBreakMode.value === 'recommended';
+    refs.generatorBreakEvery.disabled = isRecommended;
+    refs.generatorBreakDuration.disabled = isRecommended;
+    refs.generatorBreakNote.value = isRecommended ? 'Se calculará automáticamente' : 'Intervalo y duración manuales';
+  };
+  refs.generatorSyllabi.addEventListener('input', renderSyllabusDetails);
+  refs.generatorTopics.addEventListener('input', renderSyllabusDetails);
+  refs.generatorBreakMode.addEventListener('change', updateBreakMode);
+  updateBreakMode();
   refs.generatorFiles.addEventListener('change', () => {
     const count = refs.generatorFiles.files.length;
     refs.generatorFileStatus.textContent = count ? `${count} PDF(s) listo(s) para analizar.` : '';
