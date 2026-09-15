@@ -666,6 +666,14 @@ button { cursor: pointer; }
   color: var(--muted);
 }
 
+.progress-panel { background: rgba(61,124,120,0.045); }
+.progress-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-bottom: 12px; }
+.progress-metric { padding: 9px 7px; border: 1px solid var(--line); border-radius: 10px; background: rgba(255,255,255,0.72); text-align: center; }
+.progress-metric strong { display: block; color: var(--text); font-family: "Space Grotesk", sans-serif; font-size: 1.05rem; }
+.progress-metric span { display: block; margin-top: 3px; color: var(--muted); font-size: 0.65rem; line-height: 1.15; }
+.progress-suggestions { display: flex; flex-direction: column; gap: 7px; }
+.progress-suggestions p { margin: 0; padding: 8px 9px; border-left: 3px solid var(--primary); background: rgba(238,105,88,0.07); color: var(--muted); font-size: 0.74rem; line-height: 1.4; }
+
 .import-box-panel {
   background: rgba(238,105,88,0.035);
 }

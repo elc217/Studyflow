@@ -115,6 +115,8 @@ const refs = {
   calendarGrid: document.querySelector('#calendarGrid'),
   dayDetailHeader: document.querySelector('#dayDetailHeader'),
   dayDetailList: document.querySelector('#dayDetailList'),
+  progressSummary: document.querySelector('#progressSummary'),
+  progressSuggestions: document.querySelector('#progressSuggestions'),
   choosePlanFile: document.querySelector('#choosePlanFile'),
   planFileInput: document.querySelector('#planFileInput'),
   planMarkdown: document.querySelector('#planMarkdown'),
@@ -487,6 +489,41 @@ function renderStats() {
 
   const dates = getWeekDates(state.weekStart);
   refs.weekLabel.textContent = `Semana ${dates[0]} – ${dates[6]}`;
+  renderProgressTracking();
+}
+
+function renderProgressTracking() {
+  if (!refs.progressSummary || !refs.progressSuggestions) return;
+  const weekDates = getWeekDates(state.weekStart);
+  const weekTasks = state.tasks.filter((task) => weekDates.includes(task.date));
+  const plannedMinutes = weekTasks.reduce((sum, task) => sum + Number(task.duration || 0), 0);
+  const completedTasks = weekTasks.filter((task) => task.completed || task.status === 'completado');
+  const completedMinutes = completedTasks.reduce((sum, task) => sum + Number(task.duration || 0), 0);
+  const completionRate = weekTasks.length ? Math.round((completedTasks.length / weekTasks.length) * 100) : 0;
+  const pendingTasks = weekTasks.length - completedTasks.length;
+  const pendingReviews = state.notes.filter((note) => note.needsReview).length;
+  const incorrect = state.tests.reduce((sum, test) => sum + Number(test.incorrect || 0), 0);
+  const accuracyTotal = state.tests.reduce((sum, test) => sum + Number(test.correct || 0) + Number(test.incorrect || 0), 0);
+  const accuracy = accuracyTotal ? Math.round(((accuracyTotal - incorrect) / accuracyTotal) * 100) : null;
+
+  refs.progressSummary.innerHTML = `<div class="progress-metric"><strong>${completionRate}%</strong><span>cumplimiento</span></div><div class="progress-metric"><strong>${completedMinutes}/${plannedMinutes}</strong><span>min completados</span></div><div class="progress-metric"><strong>${pendingTasks}</strong><span>pendientes</span></div>`;
+
+  const suggestions = [];
+  if (!weekTasks.length) {
+    suggestions.push('Aún no hay tareas en esta semana. Genera o importa un plan para comenzar la trazabilidad.');
+  } else if (completionRate < 60) {
+    suggestions.push(`Has completado el ${completionRate}% de los bloques. Reduce aproximadamente un 20% la carga de la próxima semana y mueve primero los ${pendingTasks} pendientes esenciales.`);
+    suggestions.push('Mantén los repasos prioritarios y divide los temas que se estén quedando sin terminar.');
+  } else if (completionRate < 85) {
+    suggestions.push(`Ritmo intermedio (${completionRate}%). Conserva la carga y reserva el primer bloque de la próxima semana para recuperar pendientes.`);
+    suggestions.push('Los repasos de 1 y 3 días deben mantenerse; desplaza los repasos secundarios si falta tiempo.');
+  } else {
+    suggestions.push(`Buen ritmo (${completionRate}%). Mantén la carga y adelanta solo contenido que puedas recuperar sin apuntes.`);
+    suggestions.push('No elimines los repasos espaciados: alcanzar metas no sustituye la consolidación.');
+  }
+  if (pendingReviews) suggestions.push(`Hay ${pendingReviews} errores marcados para repaso: prioriza corrección y práctica sobre releer teoría.`);
+  if (accuracy !== null && accuracy < 75) suggestions.push(`La precisión de los tests es del ${accuracy}%. Añade preguntas y simulacros de los temas con más fallos antes de avanzar.`);
+  refs.progressSuggestions.innerHTML = suggestions.map((suggestion) => `<p>${suggestion}</p>`).join('');
 }
 
 function renderCalendar() {
@@ -852,6 +889,7 @@ function renderReviewSuggestions() {
         score,
         tone,
         recommendedMinutes: score >= 6 ? 50 : score >= 3 ? 30 : 20,
+        action: score >= 6 ? 'Haz un test y corrige los errores' : score >= 3 ? 'Explica el tema sin apuntes y practica preguntas' : 'Recuerda las ideas principales sin mirar',
       };
     })
     .sort((a, b) => b.score - a.score)
@@ -872,6 +910,7 @@ function renderReviewSuggestions() {
       </div>
       <div class="review-topic">${item.topic}</div>
       <div class="review-meta">Recomendación: ${item.recommendedMinutes} min de repaso</div>
+      <div class="review-meta">Qué hacer: ${item.action}</div>
     </div>
   `).join('');
 }
@@ -1201,8 +1240,9 @@ function createGeneratorSchedule(topics, options) {
   let workMinutes = 0;
   let elapsedMinutes = 0;
   const dailyCapacity = Math.round(options.hours * 60);
+  const firstStudyDates = new Map();
 
-  const addWork = (minutes, title, subject, difficulty, priority, dates) => {
+  const addWork = (minutes, title, subject, difficulty, priority, dates, onFirstBlock) => {
     while (minutes > 0) {
       if (dateIndex >= dates.length) throw new Error('La carga estimada no cabe antes de las tres semanas de repaso. Aumenta horas/días o reduce temas.');
       const date = dates[dateIndex];
@@ -1213,18 +1253,44 @@ function createGeneratorSchedule(topics, options) {
       const chunk = Math.min(minutes, available, sessionLimit);
       if (chunk < 15) { dateIndex += 1; workMinutes = 0; elapsedMinutes = 0; continue; }
       tasks.push({ title, subject, duration: chunk, date, startTime: minutesToTime(9 * 60 + elapsedMinutes), priority, difficulty, status: 'planificado', completed: false });
+      if (onFirstBlock) onFirstBlock(date);
       minutes -= chunk;
       workMinutes += chunk;
       elapsedMinutes += chunk;
     }
   };
 
-  topics.forEach((topic) => addWork(topic.minutes, topic.title, topic.syllabus, topic.difficulty, topic.difficulty === 'alta' ? 'Alta' : 'Media', studyDates));
-  dateIndex = 0;
-  workMinutes = 0;
-  elapsedMinutes = 0;
-  topics.forEach((topic) => addWork(35, `Repaso: ${topic.title}`, topic.syllabus, 'media', 'Alta', reviewDates));
-  return { tasks, reviewStart, studyDates, reviewDates };
+  topics.forEach((topic) => addWork(topic.minutes, topic.title, topic.syllabus, topic.difficulty, topic.difficulty === 'alta' ? 'Alta' : 'Media', studyDates, (date) => {
+    const key = `${topic.syllabus}|${topic.title}`;
+    if (!firstStudyDates.has(key)) firstStudyDates.set(key, date);
+  }));
+
+  const reviewActions = [
+    { days: 1, label: 'Recuerdo activo: explica sin apuntes', minutes: 25 },
+    { days: 3, label: 'Práctica: resuelve preguntas o ejercicios', minutes: 30 },
+    { days: 7, label: 'Corrección: revisa errores y lagunas', minutes: 35 },
+    { days: 14, label: 'Test: comprueba si lo recuperas', minutes: 35 },
+    { days: 21, label: 'Repaso final: síntesis y simulacro', minutes: 40 },
+  ];
+  const reviewCandidates = getGeneratorDates(options.startDate, addDays(options.examDate, -1), options.weekdays);
+  const reviewUsage = new Map();
+  tasks.forEach((task) => reviewUsage.set(task.date, (reviewUsage.get(task.date) || 0) + Number(task.duration || 0)));
+  topics.forEach((topic) => {
+    const studyDate = firstStudyDates.get(`${topic.syllabus}|${topic.title}`);
+    if (!studyDate) return;
+    reviewActions.forEach((action) => {
+      const target = addDays(studyDate, action.days);
+      const reviewDate = reviewCandidates.find((date) => date >= target && date < options.examDate && (reviewUsage.get(date) || 0) < dailyCapacity);
+      if (!reviewDate || reviewDate >= options.examDate) return;
+      const usedMinutes = reviewUsage.get(reviewDate) || 0;
+      const available = dailyCapacity - usedMinutes;
+      if (available < 15) return;
+      const duration = Math.min(action.minutes, Math.max(15, Math.round(available / 5) * 5));
+      tasks.push({ title: `Repaso ${action.days}d: ${topic.title} · ${action.label}`, subject: topic.syllabus, duration, date: reviewDate, startTime: minutesToTime(9 * 60 + usedMinutes), priority: 'Alta', difficulty: 'media', status: 'planificado', completed: false });
+      reviewUsage.set(reviewDate, usedMinutes + duration);
+    });
+  });
+  return { tasks, reviewStart, studyDates, reviewDates, reviewActions };
 }
 
 function getRecommendedBreakPlan(hours, age, topics) {
@@ -1571,6 +1637,7 @@ if (refs.testForm) {
     saveData(STORAGE_KEYS.tests, state.tests);
     renderTestHistory();
     renderReviewSuggestions();
+    renderProgressTracking();
     refs.testForm.reset();
   });
 }
@@ -1591,6 +1658,7 @@ if (refs.noteForm) {
     saveData(STORAGE_KEYS.notes, state.notes.map(normalizeNote));
     renderNotes();
     renderReviewSuggestions();
+    renderProgressTracking();
     refs.noteForm.reset();
     refs.noteTask.value = '';
   });

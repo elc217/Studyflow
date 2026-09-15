@@ -24,6 +24,8 @@ Organizador visual de estudio con agenda semanal por horas, temporizador flexibl
 - Informe imprimible del cuaderno de errores, exportable a PDF desde el navegador.
 - Exportacion de la semana visible como PDF/impresion, JPEG o fondo SVG escalable.
 - Sustitucion segura de la planificacion actual sin borrar notas ni resultados.
+- Repaso espaciado orientativo a 1, 3, 7, 14 y 21 dias con una accion concreta por bloque.
+- Seguimiento semanal de cumplimiento, minutos, pendientes, errores y tests con sugerencias de ajuste.
 
 ## Ejecutar localmente
 

@@ -197,6 +197,17 @@
               <ul id="dayDetailList" class="day-detail-list"></ul>
             </div>
 
+            <div class="panel side-panel progress-panel">
+              <div class="panel-header">
+                <div>
+                  <p class="eyebrow">Trazabilidad</p>
+                  <h3>Seguimiento semanal</h3>
+                </div>
+              </div>
+              <div id="progressSummary" class="progress-summary"></div>
+              <div id="progressSuggestions" class="progress-suggestions"></div>
+            </div>
+
             <div class="panel side-panel timer-panel">
               <div class="panel-header">
                 <h3>Temporizador</h3>
@@ -375,7 +386,7 @@
           <h3>3. Cómo calcula el tiempo</h3>
           <p>La estimación parte de una duración base y la ajusta por dificultad. Los temas con términos complejos, problemas, excepciones o títulos extensos reciben más tiempo. La edad aplica un factor gradual: a partir de los 25 años aumenta moderadamente la duración estimada; no sustituye a tu propia experiencia ni pretende medir la capacidad de una persona.</p>
           <p><strong>Temarios completos:</strong> sí, puedes subir PDFs extensos, no solo índices. StudyFlow lee el texto seleccionable página a página, detecta encabezados como “Tema 1”, “Unidad 2” o “Capítulo 3” y estima el tamaño de cada tema por el número aproximado de páginas hasta el siguiente encabezado. Si el PDF es un escaneado de imágenes o no tiene encabezados reconocibles, usará el número de temas indicado y una estimación genérica; en ese caso conviene revisar el resultado.</p>
-          <p>Cada tema se divide en bloques respetando tus descansos. En las tres semanas finales se crea al menos un bloque de repaso por tema. Revisa la primera semana y modifica manualmente los bloques si tu experiencia real difiere.</p>
+          <p>Cada tema se divide en bloques respetando tus descansos. El plan generado propone repasos espaciados aproximadamente a 1, 3, 7, 14 y 21 días cuando caben en el calendario. Cada bloque indica qué hacer: recordar sin apuntes, practicar, corregir errores, hacer un test o preparar una síntesis final. Revisa la primera semana y modifica manualmente los bloques si tu experiencia real difiere.</p>
           <h3>4. Leer el calendario semanal</h3>
           <figure class="manual-figure"><img src="manual-calendar.svg" alt="Ejemplo visual de bloques en el calendario semanal" /><figcaption>Los colores distinguen sesiones planificadas, en curso y completadas; cada bloque muestra tema, duración y hora.</figcaption></figure>
           <p>Lee cada columna como un día y cada bloque como una sesión ejecutable. Empieza por la hora indicada, marca la tarea como completada cuando termines y usa la dificultad para señalar qué debe recibir más atención.</p>
@@ -393,7 +404,10 @@
           <h3>8. Tests y cuaderno de errores</h3>
           <p>Guarda aciertos y fallos de cada test para consultar tu precisión. En el cuaderno puedes asociar un error a una tarea y marcarlo para repaso posterior. El buscador encuentra coincidencias por materia, tema o texto.</p>
           <p>Usa <strong>Imprimir / PDF</strong> para crear un informe del cuaderno. El informe respeta el filtro de búsqueda actual, resume errores, materias y repasos pendientes, y deja una línea para anotar la próxima acción. En el diálogo de impresión elige <strong>Guardar como PDF</strong> o una impresora.</p>
-          <h3>9. Copias de seguridad y sincronización</h3>
+          <h3>9. Trazabilidad y ajustes</h3>
+          <p>El panel <strong>Seguimiento semanal</strong> compara los bloques planificados con los completados en la semana visible. También muestra minutos realizados, pendientes, errores marcados para repaso y precisión de los tests.</p>
+          <p>Con menos del 60% de cumplimiento sugiere reducir la carga siguiente y recuperar lo esencial; entre el 60% y el 85% recomienda mantener el ritmo y reservar un bloque para pendientes; por encima del 85% propone mantener la carga y adelantar solo contenido que puedas recuperar activamente. Los errores y los fallos de tests hacen que recomiende priorizar repasos y práctica antes de avanzar.</p>
+          <h3>10. Copias de seguridad y sincronización</h3>
           <p><strong>Exportar copia</strong> descarga tareas, tests y notas en JSON. <strong>Restaurar copia</strong> reemplaza los datos actuales por el fichero seleccionado, así que conviene exportar antes.</p>
           <p>Sin iniciar sesión, los datos viven en el navegador actual. Con una cuenta, StudyFlow sincroniza tareas, tests y notas con Supabase para acceder desde otros dispositivos.</p>
           <h3>10. Rutina recomendada</h3>
