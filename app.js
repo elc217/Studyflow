@@ -141,6 +141,7 @@ const refs = {
   planGeneratorForm: document.querySelector('#planGeneratorForm'),
   generatorCourseType: document.querySelector('#generatorCourseType'),
   generatorGenericCourseFields: document.querySelector('#generatorGenericCourseFields'),
+  generatorAcademicHint: document.querySelector('#generatorAcademicHint'),
   generatorOposicionesFields: document.querySelector('#generatorOposicionesFields'),
   generatorStartDate: document.querySelector('#generatorStartDate'),
   generatorExamDate: document.querySelector('#generatorExamDate'),
@@ -156,6 +157,7 @@ const refs = {
   generatorSpecificClases: document.querySelector('#generatorSpecificClases'),
   generatorConvocatoriaIndex: document.querySelector('#generatorConvocatoriaIndex'),
   generatorSyllabusDetails: document.querySelector('#generatorSyllabusDetails'),
+  generatorSyllabusLabel: document.querySelector('#generatorSyllabusLabel'),
   generatorBreakMode: document.querySelector('#generatorBreakMode'),
   generatorBreakEvery: document.querySelector('#generatorBreakEvery'),
   generatorBreakDuration: document.querySelector('#generatorBreakDuration'),
@@ -1233,17 +1235,21 @@ function renderSyllabusDetails() {
   refs.generatorSyllabusDetails.innerHTML = Array.from({ length: count }, (_, index) => `
     <div class="syllabus-row">
       <input data-syllabus-name="${index}" type="text" value="Temario ${index + 1}" aria-label="Nombre del temario ${index + 1}" />
-      <input data-syllabus-topics="${index}" type="number" min="1" max="200" value="${Number(refs.generatorTopics.value) || 10}" aria-label="Temas del temario ${index + 1}" />
+      <textarea data-syllabus-topic-list="${index}" rows="3" placeholder="Tema 1\nTema 2\nTema 3" aria-label="Temas de la asignatura ${index + 1}"></textarea>
       <input data-syllabus-classes="${index}" type="number" min="1" max="20" value="1" aria-label="Clases semanales del temario ${index + 1}" />
-      <span>temas · clases/sem.</span>
+      <span>un tema por línea · sesiones/sem.</span>
     </div>`).join('');
 }
 
 function getSyllabusOptions() {
   return [...refs.generatorSyllabusDetails.querySelectorAll('.syllabus-row')].map((row, index) => ({
     name: row.querySelector(`[data-syllabus-name="${index}"]`).value.trim() || `Temario ${index + 1}`,
-    topicCount: Number(row.querySelector(`[data-syllabus-topics="${index}"]`).value) || Number(refs.generatorTopics.value) || 10,
+    topicTitles: row.querySelector(`[data-syllabus-topic-list="${index}"]`).value.split(/\r?\n/).map((title) => title.trim()).filter(Boolean),
+    topicCount: 0,
     classesPerWeek: Number(row.querySelector(`[data-syllabus-classes="${index}"]`).value) || 1,
+  })).map((syllabus) => ({
+    ...syllabus,
+    topicCount: syllabus.topicTitles.length || Number(refs.generatorTopics.value) || 10,
   }));
 }
 
@@ -1263,8 +1269,10 @@ function getCourseSyllabusOptions() {
 function renderCourseTypeFields() {
   const isOposiciones = refs.generatorCourseType.value === 'oposiciones';
   refs.generatorGenericCourseFields.hidden = isOposiciones;
+  refs.generatorAcademicHint.hidden = isOposiciones;
   refs.generatorOposicionesFields.hidden = !isOposiciones;
   refs.generatorSyllabusDetails.hidden = isOposiciones;
+  refs.generatorSyllabusLabel.textContent = isOposiciones ? 'Temarios de oposición' : 'Asignaturas, módulos y temas';
 }
 
 function orderTopicsByClasses(topics, syllabusOptions) {
@@ -1293,7 +1301,7 @@ function enrichTopicForPlanning(topic, options, index) {
   const pressure = getSubjectErrorPressure(topic.syllabus || topic.subject || 'General');
   const baseMinutes = estimateTopicMinutes(topic, options.age) || 60;
   const difficultyFactor = { baja: 0.9, media: 1.1, alta: 1.32 }[topic.difficulty] || 1;
-  const syllabusFactor = options.courseType === 'oposiciones' ? 1.18 : 1.05;
+  const syllabusFactor = options.courseType === 'oposiciones' ? 1.18 : options.courseType === 'master' ? 1.12 : 1.05;
   const ageFactor = options.age > 30 ? 1 + (options.age - 30) * 0.008 : 0.96;
   const capacityFactor = options.hours <= 2 ? 0.92 : options.hours >= 5 ? 1.16 : 1.05;
   const priorityBoost = pressure > 20 ? 1.18 : pressure > 10 ? 1.1 : 1;
@@ -1308,6 +1316,13 @@ function enrichTopicForPlanning(topic, options, index) {
     practiceMinutes: Math.max(25, Math.min(90, Math.round(refinedMinutes * 0.26 + (topic.difficulty === 'alta' ? 18 : 10)))),
     position: index + 1,
   };
+}
+
+function getPracticeLabel(courseType) {
+  if (courseType === 'oposiciones') return 'Supuesto práctico obligatorio: ';
+  if (courseType === 'universidad' || courseType === 'master') return 'Ejercicios y aplicación: ';
+  if (courseType === 'fp') return 'Actividad práctica / caso: ';
+  return 'Ejercicios y aplicación: ';
 }
 
 function splitIntoChunks(totalMinutes, dailyCapacity, breakEvery) {
@@ -1407,7 +1422,7 @@ function createGeneratorSchedule(topics, options) {
     assignToStudyDay(questionMinutes, `Test y recuerdo activo: ${topic.title}`, topic.syllabus, topic.difficulty, 'Alta', null);
 
     const practiceMinutes = Math.max(25, Math.min(90, topic.practiceMinutes));
-    assignToStudyDay(practiceMinutes, `Supuesto práctico obligatorio: ${topic.title}`, topic.syllabus, topic.difficulty, 'Alta', null);
+    assignToStudyDay(practiceMinutes, `${getPracticeLabel(options.courseType)}${topic.title}`, topic.syllabus, topic.difficulty, 'Alta', null);
 
     const errorReviewMinutes = Math.max(20, Math.round(topic.reviewWeight / 2));
     if (errorReviewMinutes > 0) {
@@ -1486,7 +1501,10 @@ async function generateStudyPlan(event) {
       const pdfData = file ? await extractPdfText(file) : { text: '', pages: [], pageCount: 0 };
       const found = file ? topicsFromPdf(pdfData, file.name, syllabus.topicCount) : [];
       for (let topicIndex = 0; topicIndex < syllabus.topicCount; topicIndex += 1) {
-        const source = found[topicIndex] || { title: `Tema ${topicIndex + 1}`, sourceText: pdfData.text, syllabus: syllabus.name };
+        const manualTitle = syllabus.topicTitles?.[topicIndex];
+        const source = manualTitle
+          ? { title: manualTitle, sourceText: pdfData.text, syllabus: syllabus.name }
+          : (found[topicIndex] || { title: `Tema ${topicIndex + 1}`, sourceText: pdfData.text, syllabus: syllabus.name });
         const topic = { ...source, syllabus: syllabus.name, classesPerWeek: syllabus.classesPerWeek };
         topic.difficulty = classifyTopicDifficulty(topic.title, topic.sourceText);
         topic.minutes = estimateTopicMinutes(topic, options.age);

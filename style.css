@@ -709,8 +709,9 @@ button { cursor: pointer; }
 .weekday-picker input { accent-color: var(--primary); }
 .field-hint { color: var(--muted); font-size: 0.7rem; line-height: 1.35; }
 .syllabus-details { display: flex; flex-direction: column; gap: 8px; }
-.syllabus-row { display: grid; grid-template-columns: minmax(0, 1.4fr) 78px 88px auto; gap: 6px; align-items: center; }
-.syllabus-row input { min-width: 0; padding: 9px 10px; border: 1px solid var(--line); border-radius: 9px; background: rgba(255,255,255,0.86); color: var(--text); }
+.syllabus-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(190px, 1.8fr) 88px auto; gap: 6px; align-items: center; }
+.syllabus-row input,
+.syllabus-row textarea { min-width: 0; padding: 9px 10px; border: 1px solid var(--line); border-radius: 9px; background: rgba(255,255,255,0.86); color: var(--text); font: inherit; resize: vertical; }
 .syllabus-row span { color: var(--muted); font-size: 0.68rem; white-space: nowrap; }
 .generator-status { min-height: 18px; color: var(--secondary); font-size: 0.74rem; font-weight: 700; }
 .generator-actions { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -876,6 +877,6 @@ button { cursor: pointer; }
 
   .admin-grid { grid-template-columns: 1fr; }
 
-  .syllabus-row { grid-template-columns: minmax(0, 1fr) 70px 80px; }
+  .syllabus-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr) 80px; }
   .syllabus-row span { grid-column: 1 / -1; }
 }

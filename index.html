@@ -260,9 +260,10 @@
                   <div class="field-group"><label for="generatorHours">Horas/día</label><input id="generatorHours" type="number" min="0.5" max="12" step="0.5" value="3" required /></div>
                 </div>
                 <div class="field-row" id="generatorGenericCourseFields">
-                  <div class="field-group"><label for="generatorSyllabi">N.º temarios</label><input id="generatorSyllabi" type="number" min="1" max="20" value="1" required /></div>
+                  <div class="field-group"><label for="generatorSyllabi">N.º asignaturas / módulos</label><input id="generatorSyllabi" type="number" min="1" max="20" value="1" required /></div>
                   <div class="field-group"><label for="generatorTopics">Temas por defecto</label><input id="generatorTopics" type="number" min="1" max="200" value="10" required /></div>
                 </div>
+                <p id="generatorAcademicHint" class="field-hint">Crea cada asignatura y escribe sus temas, uno por línea. Si dejas la lista vacía, se generarán temas numerados.</p>
                 <div class="field-group" id="generatorOposicionesFields" hidden>
                   <label>Temarios de oposición</label>
                   <div class="oposiciones-grid">
@@ -297,7 +298,7 @@
                     <input id="generatorConvocatoriaIndex" type="text" value="Índice de convocatoria" placeholder="Tema 1, Tema 2…" />
                   </div>
                 </div>
-                <div class="field-group"><label>Partes, clases semanales y temarios</label><div id="generatorSyllabusDetails" class="syllabus-details"></div><small class="field-hint">Asigna más clases semanales a la parte que deba recibir más presencia en el calendario.</small></div>
+                <div class="field-group"><label id="generatorSyllabusLabel">Asignaturas, módulos y temas</label><div id="generatorSyllabusDetails" class="syllabus-details"></div><small class="field-hint">Las clases semanales determinan el peso de cada asignatura. El orden de los temas se conserva en el plan.</small></div>
                 <div class="field-row">
                   <div class="field-group"><label for="generatorBreakMode">Pausas</label><select id="generatorBreakMode"><option value="recommended" selected>Recomendadas</option><option value="custom">Personalizadas</option></select></div>
                   <div class="field-group"><label for="generatorBreakEvery">Intervalo de trabajo (min)</label><input id="generatorBreakEvery" type="number" min="20" max="180" step="5" value="50" /></div>
@@ -418,7 +419,7 @@
           <ol>
             <li><strong>Fechas:</strong> el comienzo es el primer día posible; el examen es una fecha límite, no una sesión de estudio.</li>
             <li><strong>Edad y horas:</strong> indica una capacidad sostenible, incluyendo pausas y obligaciones. Es mejor introducir 2 horas mantenibles que 6 imposibles.</li>
-            <li><strong>Temarios:</strong> escribe cuántos bloques de contenido tendrás y cuántos temas hay en cada uno.</li>
+            <li><strong>Asignaturas:</strong> en E.S.O., F.P., universidad y máster indica cuántas asignaturas o módulos tendrás. Después escribe el nombre de cada uno y sus temas, uno por línea; si no los escribes, se crearán temas numerados como punto de partida.</li>
             <li><strong>Días:</strong> marca solo días realmente disponibles. Los días sin marcar nunca recibirán sesiones.</li>
             <li><strong>Descansos:</strong> 50 minutos de trabajo y 10 de pausa es un punto de partida equilibrado; usa 25/5 si te cuesta arrancar.</li>
             <li><strong>PDF:</strong> adjunta un índice o temario con texto seleccionable. Se intentan reconocer líneas como “Tema 1: ...”, “Unidad 2 - ...” o listas numeradas.</li>
@@ -427,6 +428,7 @@
           <p>El generador reserva siempre los 21 días anteriores al examen para repasar. Si el periodo es demasiado corto o la carga no cabe con tu disponibilidad, solicita más tiempo, más horas o menos temas.</p>
           <p><strong>Pausas:</strong> en modo <em>Recomendadas</em>, StudyFlow parte de pautas orientativas de hábitos de estudio usadas en contextos educativos: 25/5 para sesiones cortas, 50/10 como punto de partida y 45/10 cuando la carga, la edad o la dificultad aconsejan más frecuencia. No existe una única pauta oficial válida para todas las personas; puedes cambiar a <em>Personalizadas</em> e indicar exactamente el intervalo de trabajo y la duración de la pausa.</p>
           <p><strong>Partes del curso:</strong> cada temario o parte tiene nombre, número de temas y clases semanales. Si una parte tiene tres clases y otra una, el plan intercala aproximadamente tres bloques de la primera por cada bloque de la segunda, manteniendo el total de contenido y el repaso final.</p>
+          <p><strong>Flujo académico recomendado:</strong> para E.S.O. crea una asignatura por materia y escribe las unidades o bloques del trimestre; para F.P. crea un módulo por cada módulo profesional y añade unidades, prácticas o resultados de aprendizaje; para universidad y máster crea una asignatura por materia y añade los temas, lecturas, problemas o entregas principales. El generador conserva esos nombres, reparte la presencia según las sesiones semanales y añade ejercicios o actividades de aplicación adaptados al tipo de curso.</p>
           <h3>3. Cómo calcula el tiempo</h3>
           <p>La estimación parte de una duración base y la ajusta por dificultad. Los temas con términos complejos, problemas, excepciones o títulos extensos reciben más tiempo. La edad aplica un factor gradual: a partir de los 25 años aumenta moderadamente la duración estimada; no sustituye a tu propia experiencia ni pretende medir la capacidad de una persona.</p>
           <p><strong>Temarios completos:</strong> sí, puedes subir PDFs extensos, no solo índices. StudyFlow lee el texto seleccionable página a página, detecta encabezados como “Tema 1”, “Unidad 2” o “Capítulo 3” y estima el tamaño de cada tema por el número aproximado de páginas hasta el siguiente encabezado. Si el PDF es un escaneado de imágenes o no tiene encabezados reconocibles, usará el número de temas indicado y una estimación genérica; en ese caso conviene revisar el resultado.</p>
