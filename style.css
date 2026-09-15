@@ -714,6 +714,20 @@ button { cursor: pointer; }
 .syllabus-row textarea { min-width: 0; padding: 9px 10px; border: 1px solid var(--line); border-radius: 9px; background: rgba(255,255,255,0.86); color: var(--text); font: inherit; resize: vertical; }
 .syllabus-row span { color: var(--muted); font-size: 0.68rem; white-space: nowrap; }
 .generator-status { min-height: 18px; color: var(--secondary); font-size: 0.74rem; font-weight: 700; }
+.generator-pdf-tools { display: flex; gap: 8px; flex-wrap: wrap; margin: 4px 0 8px; }
+.generator-pdf-review { margin-top: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: rgba(255,255,255,0.58); }
+.pdf-review-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.pdf-review-header h4 { margin: 0 0 3px; font-size: 0.86rem; }
+.pdf-review-count { color: var(--secondary); font-size: 0.7rem; font-weight: 700; white-space: nowrap; }
+.pdf-review-table-wrap { overflow-x: auto; margin-top: 8px; }
+.pdf-review-table { width: 100%; border-collapse: collapse; font-size: 0.7rem; }
+.pdf-review-table th,
+.pdf-review-table td { padding: 6px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: middle; }
+.pdf-review-table th { color: var(--muted); font-size: 0.64rem; text-transform: uppercase; }
+.pdf-review-table input[type="text"] { width: 100%; min-width: 180px; padding: 6px 7px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); color: var(--text); font: inherit; }
+.pdf-review-table input[type="number"] { width: 58px; padding: 6px 5px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); color: var(--text); font: inherit; }
+.pdf-markdown-label { display: block; margin-top: 10px; color: var(--muted); font-size: 0.68rem; font-weight: 700; }
+.pdf-markdown-preview { width: 100%; margin-top: 5px; padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: rgba(248,250,247,0.9); color: var(--text); font: 0.7rem/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; resize: vertical; }
 .generator-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .generator-actions button { flex: 1 1 140px; }
 .generator-summary { margin-top: 14px; padding: 10px 12px; border-left: 3px solid var(--success); background: rgba(43,157,120,0.08); color: var(--muted); font-size: 0.76rem; line-height: 1.45; }

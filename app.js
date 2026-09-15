@@ -164,6 +164,12 @@ const refs = {
   generatorBreakNote: document.querySelector('#generatorBreakNote'),
   generatorWeekdays: document.querySelector('#generatorWeekdays'),
   generatorFiles: document.querySelector('#generatorFiles'),
+  analyzeGeneratorPdfs: document.querySelector('#analyzeGeneratorPdfs'),
+  downloadPdfMarkdown: document.querySelector('#downloadPdfMarkdown'),
+  generatorPdfReview: document.querySelector('#generatorPdfReview'),
+  generatorPdfReviewList: document.querySelector('#generatorPdfReviewList'),
+  generatorPdfReviewCount: document.querySelector('#generatorPdfReviewCount'),
+  generatorPdfMarkdown: document.querySelector('#generatorPdfMarkdown'),
   generatorFileStatus: document.querySelector('#generatorFileStatus'),
   generatorSummary: document.querySelector('#generatorSummary'),
   downloadGeneratedPlan: document.querySelector('#downloadGeneratedPlan'),
@@ -1166,6 +1172,8 @@ async function clearCurrentStudyPlan() {
 }
 
 let generatedPlanMarkdown = '';
+let generatorPdfTopics = [];
+let generatorPdfMarkdown = '';
 
 function dateDifferenceInDays(start, end) {
   const startDate = new Date(`${start}T00:00:00`);
@@ -1195,22 +1203,30 @@ function estimateTopicMinutes(topic, age) {
   return Math.round(Math.max(35, Math.min(300, pageFactor * difficultyFactor * ageFactor)) / 5) * 5;
 }
 
-async function extractPdfText(file) {
+function escapeHtml(value) {
+  return String(value || '').replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[character]));
+}
+
+async function extractPdfText(file, onProgress) {
   const pdfjs = await import('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.mjs');
   const pdf = await pdfjs.getDocument({ data: await file.arrayBuffer() }).promise;
+  const pageCount = pdf.numPages;
   const pages = [];
-  for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+  for (let pageNumber = 1; pageNumber <= pageCount; pageNumber += 1) {
     const page = await pdf.getPage(pageNumber);
     const content = await page.getTextContent();
     pages.push(content.items.map((item) => item.str).join(' ').replace(/\s+/g, ' ').trim());
+    if (onProgress) onProgress(pageNumber, pageCount);
+    if (pageNumber % 8 === 0) await new Promise((resolve) => requestAnimationFrame(resolve));
   }
-  return { pages, text: pages.join('\n'), pageCount: pdf.numPages };
+  await pdf.destroy();
+  return { pages, text: pages.join('\n'), pageCount };
 }
 
 function topicsFromPdf(pdfData, fileName, fallbackCount) {
   const { pages, text, pageCount } = pdfData;
   const topics = [];
-  const topicPattern = /(?:tema|unidad|bloque|cap[ií]tulo)\s*(\d{1,3})\s*[:.)-]?\s*([^\n]{3,120})/gi;
+  const topicPattern = /(?:tema|unidad|bloque|cap[ií]tulo)\s*(\d{1,3})\s*[:.)-]?\s*([\s\S]*?)(?=\s+(?:tema|unidad|bloque|cap[ií]tulo)\s*\d{1,3}\s*[:.)-]?\s*|$)/gi;
   pages.forEach((pageText, pageIndex) => {
     let match;
     while ((match = topicPattern.exec(pageText))) {
@@ -1228,6 +1244,115 @@ function topicsFromPdf(pdfData, fileName, fallbackCount) {
     const nextStart = selected[index + 1]?.startPage || pageCount + 1;
     return { ...topic, title: topic.title || `Tema ${index + 1}`, pages: Math.max(1, nextStart - topic.startPage), syllabus: fileName.replace(/\.pdf$/i, '') };
   });
+}
+
+function buildPdfMarkdown(topics) {
+  const grouped = new Map();
+  topics.filter((topic) => topic.include !== false).forEach((topic) => {
+    if (!grouped.has(topic.syllabus)) grouped.set(topic.syllabus, []);
+    grouped.get(topic.syllabus).push(topic);
+  });
+  const lines = ['# Índice de temario StudyFlow', ''];
+  grouped.forEach((items, syllabus) => {
+    lines.push(`## ${syllabus}`, '');
+    items.forEach((topic, index) => {
+      lines.push(`### Tema ${topic.number || index + 1}: ${topic.title}`, `- Páginas: ${topic.startPage || 1}-${topic.endPage || topic.startPage || 1}`, `- Extensión estimada: ${topic.pages || 1} páginas`, '');
+    });
+  });
+  return lines.join('\n').trim();
+}
+
+function refreshPdfReview() {
+  const syllabusOptions = getCourseSyllabusOptions();
+  generatorPdfTopics.forEach((topic) => {
+    topic.syllabus = syllabusOptions[topic.syllabusIndex]?.name || topic.syllabus;
+  });
+  const activeTopics = generatorPdfTopics.filter((topic) => topic.include !== false);
+  refs.generatorPdfReviewList.innerHTML = generatorPdfTopics.map((topic, index) => `
+    <tr data-pdf-topic-row="${index}">
+      <td><input data-pdf-topic-include="${index}" type="checkbox" ${topic.include !== false ? 'checked' : ''} aria-label="Usar tema ${index + 1}" /></td>
+      <td>${escapeHtml(topic.syllabus)}</td>
+      <td><input data-pdf-topic-title="${index}" type="text" value="${escapeHtml(topic.title)}" aria-label="Título del tema ${index + 1}" /></td>
+      <td><input data-pdf-topic-pages="${index}" type="number" min="1" max="9999" value="${topic.pages || 1}" aria-label="Páginas del tema ${index + 1}" /></td>
+    </tr>`).join('');
+  refs.generatorPdfReviewCount.textContent = `${activeTopics.length} temas activos · ${generatorPdfTopics.length} detectados`;
+  generatorPdfMarkdown = buildPdfMarkdown(generatorPdfTopics);
+  refs.generatorPdfMarkdown.value = generatorPdfMarkdown;
+  refs.downloadPdfMarkdown.disabled = !generatorPdfMarkdown;
+  refs.generatorPdfReview.hidden = !generatorPdfTopics.length;
+}
+
+function updatePdfReviewFromInputs() {
+  generatorPdfTopics.forEach((topic, index) => {
+    const titleInput = refs.generatorPdfReviewList.querySelector(`[data-pdf-topic-title="${index}"]`);
+    const pagesInput = refs.generatorPdfReviewList.querySelector(`[data-pdf-topic-pages="${index}"]`);
+    const includeInput = refs.generatorPdfReviewList.querySelector(`[data-pdf-topic-include="${index}"]`);
+    if (titleInput) topic.title = titleInput.value.trim() || `Tema ${topic.number || index + 1}`;
+    if (pagesInput) {
+      topic.pages = Math.max(1, Number(pagesInput.value) || 1);
+      topic.endPage = topic.startPage + topic.pages - 1;
+    }
+    if (includeInput) topic.include = includeInput.checked;
+  });
+  const activeTopics = generatorPdfTopics.filter((topic) => topic.include !== false);
+  refs.generatorPdfReviewCount.textContent = `${activeTopics.length} temas activos · ${generatorPdfTopics.length} detectados`;
+  generatorPdfMarkdown = buildPdfMarkdown(generatorPdfTopics);
+  refs.generatorPdfMarkdown.value = generatorPdfMarkdown;
+  refs.downloadPdfMarkdown.disabled = !generatorPdfMarkdown;
+}
+
+async function analyzeGeneratorPdfs() {
+  const files = [...refs.generatorFiles.files];
+  if (!files.length) {
+    alert('Selecciona al menos un PDF para analizar.');
+    return;
+  }
+  const syllabusOptions = getCourseSyllabusOptions();
+  generatorPdfTopics = [];
+  refs.generatorPdfReview.hidden = true;
+  refs.analyzeGeneratorPdfs.disabled = true;
+  try {
+    for (let index = 0; index < files.length; index += 1) {
+      const file = files[index];
+      const syllabus = syllabusOptions[index] || { name: file.name.replace(/\.pdf$/i, ''), topicCount: 200 };
+      refs.generatorFileStatus.textContent = `Analizando ${file.name} (${index + 1}/${files.length})...`;
+      const pdfData = await extractPdfText(file, (page, total) => {
+        refs.generatorFileStatus.textContent = `Analizando ${file.name} · página ${page}/${total}...`;
+      });
+      const found = topicsFromPdf(pdfData, file.name, syllabus.topicCount);
+      found.forEach((topic, topicIndex) => generatorPdfTopics.push({
+        ...topic,
+        syllabusIndex: index,
+        syllabus: syllabus.name,
+        number: topic.number || topicIndex + 1,
+        endPage: topic.startPage + topic.pages - 1,
+        include: true,
+      }));
+      if (!found.length) {
+        refs.generatorFileStatus.textContent = `${file.name}: no se detectaron encabezados de temas.`;
+      }
+    }
+    refreshPdfReview();
+    refs.generatorFileStatus.textContent = generatorPdfTopics.length
+      ? `${generatorPdfTopics.length} temas detectados. Revisa el índice antes de generar.`
+      : 'No se detectaron temas. Este PDF puede ser un escaneado sin texto seleccionable.';
+  } catch (error) {
+    refs.generatorFileStatus.textContent = '';
+    alert(error.message || 'No se pudo analizar el PDF.');
+  } finally {
+    refs.analyzeGeneratorPdfs.disabled = false;
+  }
+}
+
+function downloadPdfMarkdownFile() {
+  updatePdfReviewFromInputs();
+  if (!generatorPdfMarkdown) return;
+  const url = URL.createObjectURL(new Blob([generatorPdfMarkdown], { type: 'text/markdown;charset=utf-8' }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `studyflow-indice-${formatDate(new Date())}.md`;
+  link.click();
+  URL.revokeObjectURL(url);
 }
 
 function renderSyllabusDetails() {
@@ -1498,13 +1623,17 @@ async function generateStudyPlan(event) {
     for (let index = 0; index < syllabusOptions.length; index += 1) {
       const syllabus = syllabusOptions[index];
       const file = files[index];
-      const pdfData = file ? await extractPdfText(file) : { text: '', pages: [], pageCount: 0 };
-      const found = file ? topicsFromPdf(pdfData, file.name, syllabus.topicCount) : [];
-      for (let topicIndex = 0; topicIndex < syllabus.topicCount; topicIndex += 1) {
+      const reviewed = generatorPdfTopics.filter((topic) => topic.syllabusIndex === index && topic.include !== false);
+      const pdfData = reviewed.length ? { text: reviewed.map((topic) => topic.sourceText || '').join('\n'), pages: [], pageCount: 0 } : (file ? await extractPdfText(file) : { text: '', pages: [], pageCount: 0 });
+      const found = reviewed.length ? [] : (file ? topicsFromPdf(pdfData, file.name, syllabus.topicCount) : []);
+      const topicSources = reviewed.length ? reviewed : found;
+      const topicCount = reviewed.length || syllabus.topicCount;
+      for (let topicIndex = 0; topicIndex < topicCount; topicIndex += 1) {
         const manualTitle = syllabus.topicTitles?.[topicIndex];
-        const source = manualTitle
+        const source = reviewed[topicIndex]
+          || (manualTitle
           ? { title: manualTitle, sourceText: pdfData.text, syllabus: syllabus.name }
-          : (found[topicIndex] || { title: `Tema ${topicIndex + 1}`, sourceText: pdfData.text, syllabus: syllabus.name });
+          : (topicSources[topicIndex] || { title: `Tema ${topicIndex + 1}`, sourceText: pdfData.text, syllabus: syllabus.name }));
         const topic = { ...source, syllabus: syllabus.name, classesPerWeek: syllabus.classesPerWeek };
         topic.difficulty = classifyTopicDifficulty(topic.title, topic.sourceText);
         topic.minutes = estimateTopicMinutes(topic, options.age);
@@ -1792,11 +1921,23 @@ if (refs.planGeneratorForm) {
   updateBreakMode();
   refs.generatorFiles.addEventListener('change', () => {
     const count = refs.generatorFiles.files.length;
+    generatorPdfTopics = [];
+    generatorPdfMarkdown = '';
+    refs.generatorPdfReview.hidden = true;
+    refs.downloadPdfMarkdown.disabled = true;
     refs.generatorFileStatus.textContent = count ? `${count} PDF(s) listo(s) para analizar.` : '';
   });
+  refs.analyzeGeneratorPdfs.addEventListener('click', analyzeGeneratorPdfs);
+  refs.downloadPdfMarkdown.addEventListener('click', downloadPdfMarkdownFile);
+  refs.generatorPdfReviewList.addEventListener('input', updatePdfReviewFromInputs);
+  refs.generatorPdfReviewList.addEventListener('change', updatePdfReviewFromInputs);
   refs.generatorCourseType.addEventListener('change', renderCourseTypeFields);
   refs.generatorCourseType.addEventListener('change', () => {
     refs.generatorSyllabusDetails.innerHTML = '';
+    generatorPdfTopics = [];
+    generatorPdfMarkdown = '';
+    refs.generatorPdfReview.hidden = true;
+    refs.downloadPdfMarkdown.disabled = true;
     renderSyllabusDetails();
   });
   refs.planGeneratorForm.addEventListener('submit', generateStudyPlan);

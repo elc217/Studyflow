@@ -309,7 +309,28 @@
                 </div>
                 <div class="field-group"><label>Días disponibles</label><div class="weekday-picker" id="generatorWeekdays"><label><input type="checkbox" value="1" checked />L</label><label><input type="checkbox" value="2" checked />M</label><label><input type="checkbox" value="3" checked />X</label><label><input type="checkbox" value="4" checked />J</label><label><input type="checkbox" value="5" checked />V</label><label><input type="checkbox" value="6" />S</label><label><input type="checkbox" value="0" />D</label></div></div>
                 <div class="field-group"><label for="generatorFiles">Índices o temarios completos en PDF (opcional)</label><input id="generatorFiles" type="file" accept="application/pdf,.pdf" multiple /><small class="field-hint">Puedes subir índices o PDFs extensos; se analizan páginas, títulos detectados y tamaño aproximado de cada tema.</small></div>
+                <div class="generator-pdf-tools">
+                  <button id="analyzeGeneratorPdfs" class="secondary-btn small" type="button">Analizar PDF y revisar índice</button>
+                  <button id="downloadPdfMarkdown" class="ghost-btn small" type="button" disabled>Descargar Markdown</button>
+                </div>
                 <div id="generatorFileStatus" class="generator-status" role="status"></div>
+                <section id="generatorPdfReview" class="generator-pdf-review" hidden>
+                  <div class="pdf-review-header">
+                    <div>
+                      <h4>Índice detectado</h4>
+                      <p class="field-hint">Corrige títulos, elimina anexos y confirma los temas antes de generar el plan.</p>
+                    </div>
+                    <span id="generatorPdfReviewCount" class="pdf-review-count"></span>
+                  </div>
+                  <div class="pdf-review-table-wrap">
+                    <table class="pdf-review-table">
+                      <thead><tr><th>Usar</th><th>Temario</th><th>Tema detectado</th><th>Páginas</th></tr></thead>
+                      <tbody id="generatorPdfReviewList"></tbody>
+                    </table>
+                  </div>
+                  <label class="pdf-markdown-label" for="generatorPdfMarkdown">Markdown estructurado</label>
+                  <textarea id="generatorPdfMarkdown" class="pdf-markdown-preview" rows="8" readonly></textarea>
+                </section>
                 <div class="generator-actions"><button class="primary-btn" type="submit">Generar plan</button><button id="downloadGeneratedPlan" class="ghost-btn" type="button" disabled>Descargar .md</button></div>
               </form>
               <div id="generatorSummary" class="generator-summary" hidden></div>
@@ -422,7 +443,7 @@
             <li><strong>Asignaturas:</strong> en E.S.O., F.P., universidad y máster indica cuántas asignaturas o módulos tendrás. Después escribe el nombre de cada uno y sus temas, uno por línea; si no los escribes, se crearán temas numerados como punto de partida.</li>
             <li><strong>Días:</strong> marca solo días realmente disponibles. Los días sin marcar nunca recibirán sesiones.</li>
             <li><strong>Descansos:</strong> 50 minutos de trabajo y 10 de pausa es un punto de partida equilibrado; usa 25/5 si te cuesta arrancar.</li>
-            <li><strong>PDF:</strong> adjunta un índice o temario con texto seleccionable. Se intentan reconocer líneas como “Tema 1: ...”, “Unidad 2 - ...” o listas numeradas.</li>
+            <li><strong>PDF:</strong> adjunta un índice o temario con texto seleccionable y pulsa <strong>Analizar PDF y revisar índice</strong>. StudyFlow reconoce temas, páginas y extensión aproximada; puedes corregir títulos o excluir anexos antes de generar.</li>
             <li><strong>Resultado:</strong> pulsa <strong>Generar plan</strong>. Se importa automáticamente y queda disponible para descargar como Markdown.</li>
           </ol>
           <p>El generador reserva siempre los 21 días anteriores al examen para repasar. Si el periodo es demasiado corto o la carga no cabe con tu disponibilidad, solicita más tiempo, más horas o menos temas.</p>
@@ -432,6 +453,7 @@
           <h3>3. Cómo calcula el tiempo</h3>
           <p>La estimación parte de una duración base y la ajusta por dificultad. Los temas con términos complejos, problemas, excepciones o títulos extensos reciben más tiempo. La edad aplica un factor gradual: a partir de los 25 años aumenta moderadamente la duración estimada; no sustituye a tu propia experiencia ni pretende medir la capacidad de una persona.</p>
           <p><strong>Temarios completos:</strong> sí, puedes subir PDFs extensos, no solo índices. StudyFlow lee el texto seleccionable página a página, detecta encabezados como “Tema 1”, “Unidad 2” o “Capítulo 3” y estima el tamaño de cada tema por el número aproximado de páginas hasta el siguiente encabezado. Si el PDF es un escaneado de imágenes o no tiene encabezados reconocibles, usará el número de temas indicado y una estimación genérica; en ese caso conviene revisar el resultado.</p>
+          <p><strong>Conversor orientado a temarios:</strong> el botón de análisis crea un índice Markdown estructurado por temario. La tabla permite cambiar títulos, ajustar la extensión y excluir anexos o partes que no entren en el examen. Si confirmas la revisión, el generador reutiliza ese índice y no vuelve a procesar el PDF completo.</p>
           <p><strong>Práctica obligatoria por tema:</strong> al terminar cada tema, el plan añade un bloque de preguntas de recuperación o test y otro de supuesto práctico/caso aplicado. La dificultad determina su duración: un tema difícil necesita más preguntas y un caso más largo. Si una parte no utiliza supuestos prácticos, puedes editar o eliminar esos bloques desde <strong>Editar calendario</strong>.</p>
           <p>Cada tema se divide en bloques respetando tus descansos. El plan generado propone repasos espaciados aproximadamente a 1, 3, 7, 14 y 21 días cuando caben en el calendario. Cada bloque indica qué hacer: recordar sin apuntes, practicar, corregir errores, hacer un test o preparar una síntesis final. Revisa la primera semana y modifica manualmente los bloques si tu experiencia real difiere.</p>
           <h3>4. Leer el calendario semanal</h3>
