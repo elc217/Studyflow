@@ -140,9 +140,9 @@ button { cursor: pointer; }
 .status-pill.suspended { background: rgba(216,77,88,0.14); color: #ae3542; }
 
 .app-shell {
-  max-width: 1660px;
-  margin: 18px auto;
-  padding: 20px;
+  width: min(100% - 24px, 1840px);
+  margin: 12px auto;
+  padding: 12px;
   display: grid;
   grid-template-columns: 260px minmax(0, 1fr);
   gap: 20px;
@@ -333,9 +333,11 @@ button { cursor: pointer; }
 
 .planner-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1.5fr) minmax(300px, 430px);
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 380px);
   gap: 20px;
 }
+
+.calendar-panel { min-width: 0; }
 
 .panel {
   border-radius: 22px;
@@ -519,7 +521,7 @@ button { cursor: pointer; }
 .calendar-head,
 .calendar-row {
   display: grid;
-  grid-template-columns: 70px repeat(7, minmax(120px, 1fr));
+  grid-template-columns: 56px repeat(7, minmax(0, 1fr));
 }
 
 .time-column {
@@ -858,8 +860,13 @@ button { cursor: pointer; }
   }
 
   .calendar-grid {
-    grid-template-columns: 56px repeat(7,minmax(100px,1fr));
     overflow-x: auto;
+  }
+
+  .calendar-head,
+  .calendar-row {
+    min-width: 760px;
+    grid-template-columns: 56px repeat(7, minmax(100px, 1fr));
   }
 
   .topbar {
