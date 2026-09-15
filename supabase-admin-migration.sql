@@ -40,16 +40,22 @@ create or replace function public.is_admin()
 returns boolean language sql security definer set search_path = public stable
 as $$ select exists (select 1 from public.profiles where id = auth.uid() and role = 'admin'); $$;
 
+drop policy if exists "Users can read their own profile" on public.profiles;
 create policy "Users can read their own profile" on public.profiles for select
   using (auth.uid() = id or public.is_admin());
+drop policy if exists "Users can create their own profile" on public.profiles;
 create policy "Users can create their own profile" on public.profiles for insert
   with check (auth.uid() = id and role = 'user');
+drop policy if exists "Admins can update profiles" on public.profiles;
 create policy "Admins can update profiles" on public.profiles for update
   using (public.is_admin()) with check (public.is_admin());
+drop policy if exists "Users can create their own usage events" on public.usage_events;
 create policy "Users can create their own usage events" on public.usage_events for insert
   with check (auth.uid() = user_id);
+drop policy if exists "Admins can read usage events" on public.usage_events;
 create policy "Admins can read usage events" on public.usage_events for select
   using (public.is_admin());
+drop policy if exists "Users can read their own subscription" on public.subscriptions;
 create policy "Users can read their own subscription" on public.subscriptions for select
   using (auth.uid() = user_id);
 
