@@ -104,10 +104,15 @@ button { cursor: pointer; }
   margin-bottom: 20px;
 }
 
+.modal-header-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
 .modal-header h2 { margin: 0; font-family: "Space Grotesk", sans-serif; }
 .manual-content { color: var(--text); line-height: 1.55; }
 .manual-content h3 { margin: 20px 0 6px; font-family: "Space Grotesk", sans-serif; }
 .manual-content p { margin: 0 0 10px; }
+.manual-content ol, .manual-content ul { margin: 0 0 12px; padding-left: 22px; }
+.manual-content li { margin-bottom: 6px; }
+.manual-lead { font-size: 1rem; color: var(--muted); }
 .manual-content pre { overflow-x: auto; padding: 14px; border-radius: 12px; background: #17343a; color: #f7f5ef; font-size: 0.78rem; }
 
 .admin-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }

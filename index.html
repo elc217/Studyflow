@@ -333,22 +333,51 @@
             <p class="eyebrow">Ayuda</p>
             <h2>Manual de StudyFlow</h2>
           </div>
-          <button class="ghost-btn small" data-close-modal="manualPanel" type="button">Cerrar</button>
+          <div class="modal-header-actions">
+            <a class="secondary-btn small" href="manual-usuario-studyflow.pdf" download>Descargar manual PDF</a>
+            <button class="ghost-btn small" data-close-modal="manualPanel" type="button">Cerrar</button>
+          </div>
         </div>
         <div class="manual-content">
-          <h3>1. Planificar</h3>
-          <p>Usa <strong>+ Nueva tarea</strong> para crear un bloque manual. Puedes editarlo o eliminarlo desde <strong>Editar calendario</strong>.</p>
-          <h3>2. Subir una planificación</h3>
-          <p>Selecciona un fichero Markdown, TXT, DOCX o PDF en <strong>Importar plan</strong>. También puedes pegar su contenido y pulsar <strong>Importar planificación</strong>.</p>
-          <h3>3. Formato recomendado</h3>
-          <pre>| Día | Enfoque Teórico | Práctica Test | Supuestos / Casos | Repaso Espaciado |
-| :--- | :--- | :--- | :--- | :--- |
-| **Mar 15 Sep** | Tema 1 | Test 50 preguntas | Caso práctico | Flashcards |</pre>
-          <p>Cada fila crea cuatro bloques: teoría (3 h 30 min), test (1 h 30 min), supuestos (1 h 30 min) y repaso (1 h 30 min).</p>
-          <h3>4. Seguimiento</h3>
-          <p>Registra tus tests y errores. Las señales de color priorizan los repasos según fallos, dificultad y repetición.</p>
-          <h3>5. Sincronización</h3>
-          <p>Tu cuenta guarda tareas, tests y notas en Supabase. Cada usuario solo puede acceder a sus propios datos.</p>
+          <p class="manual-lead">StudyFlow convierte tus objetivos, disponibilidad y temario en una agenda semanal con bloques concretos. Puedes trabajar solo con el navegador o iniciar sesión para sincronizar tus datos.</p>
+          <h3>1. Primer acceso y navegación</h3>
+          <p>En la barra lateral puedes filtrar todas las tareas, las de hoy, las próximas o las completadas. El calendario muestra una semana cada vez; usa <strong>Semana anterior</strong> y <strong>Semana siguiente</strong> para moverte.</p>
+          <p>La tarjeta <strong>Siguiente bloque</strong> muestra la próxima sesión. Las estadísticas superiores resumen tareas, completadas, minutos y bloques del día.</p>
+          <h3>2. Generar una planificación automática</h3>
+          <ol>
+            <li>Indica la fecha de comienzo y la fecha posible del examen.</li>
+            <li>Introduce tu edad y las horas de estudio realistas por día.</li>
+            <li>Indica el número de temarios y los temas que contiene cada uno.</li>
+            <li>Marca tus días disponibles. Los días sin marcar nunca recibirán bloques.</li>
+            <li>Configura cada cuánto quieres descansar y cuántos minutos dura el descanso.</li>
+            <li>Opcionalmente, adjunta un PDF por temario. StudyFlow intentará detectar líneas como “Tema 1: ...” y usará esos nombres.</li>
+            <li>Pulsa <strong>Generar plan</strong>. El plan se importa automáticamente y también queda disponible para descargar como Markdown.</li>
+          </ol>
+          <p>El generador reserva siempre los 21 días anteriores al examen para repasar. Si el periodo es demasiado corto o la carga no cabe con tu disponibilidad, solicita más tiempo, más horas o menos temas.</p>
+          <h3>3. Cómo calcula el tiempo</h3>
+          <p>La estimación parte de una duración base y la ajusta por dificultad. Los temas con términos complejos, problemas, excepciones o títulos extensos reciben más tiempo. La edad aplica un factor gradual: a partir de los 25 años aumenta moderadamente la duración estimada; no sustituye a tu propia experiencia.</p>
+          <p>Cada tema se divide en bloques respetando tus descansos. En las tres semanas finales se crea al menos un bloque de repaso por tema.</p>
+          <h3>4. Crear o editar una tarea manual</h3>
+          <p>Pulsa <strong>+ Nueva tarea</strong>, completa tema, materia, duración, fecha, hora, prioridad, estado y dificultad, y guarda. Para editar o eliminar tareas, activa <strong>Editar calendario</strong> y usa los controles del bloque.</p>
+          <h3>5. Importar un fichero</h3>
+          <p>En <strong>Importar plan</strong> puedes seleccionar Markdown, TXT, DOCX o PDF, pegar texto o cargar el ejemplo. También se acepta una línea por tarea:</p>
+          <pre>- [ ] Matemáticas | Álgebra | 45 | 2026-09-15 | 09:00 | Alta</pre>
+          <p>El orden es: título, materia, minutos, fecha ISO, hora y prioridad. Las líneas marcadas con <code>[x]</code> entran como completadas.</p>
+          <h3>6. Estudio, temporizador y repasos</h3>
+          <p>El temporizador ofrece sesiones de 15, 25 o 50 minutos y permite introducir una duración personalizada. Enciéndelo al comenzar y reinícialo al terminar o cambiar de tarea.</p>
+          <p>La aplicación propone repasos usando dificultad, resultados de tests y entradas del cuaderno de errores. Registra los errores concretos, la materia, el tema y la corrección que necesitas practicar.</p>
+          <h3>7. Tests y cuaderno de errores</h3>
+          <p>Guarda aciertos y fallos de cada test para consultar tu precisión. En el cuaderno puedes asociar un error a una tarea y marcarlo para repaso posterior. El buscador encuentra coincidencias por materia, tema o texto.</p>
+          <h3>8. Copias de seguridad y sincronización</h3>
+          <p><strong>Exportar copia</strong> descarga tareas, tests y notas en JSON. <strong>Restaurar copia</strong> reemplaza los datos actuales por el fichero seleccionado, así que conviene exportar antes.</p>
+          <p>Sin iniciar sesión, los datos viven en el navegador actual. Con una cuenta, StudyFlow sincroniza tareas, tests y notas con Supabase para acceder desde otros dispositivos.</p>
+          <h3>9. Solución de problemas</h3>
+          <ul>
+            <li>Si un PDF no detecta temas, comprueba que el texto se puede seleccionar y escribe manualmente el número de temas.</li>
+            <li>Si no caben las sesiones, aumenta el periodo hasta el examen, selecciona más días o reduce las horas de otras obligaciones.</li>
+            <li>Si no ves una tarea, revisa el filtro activo y la semana seleccionada.</li>
+            <li>Si cambias de navegador o dispositivo sin iniciar sesión, restaura una copia JSON.</li>
+          </ul>
         </div>
       </div>
     </section>
