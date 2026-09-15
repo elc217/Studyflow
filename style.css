@@ -213,6 +213,19 @@ button { cursor: pointer; }
   padding: 18px 16px;
 }
 
+.sidebar-signout {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(255,255,255,0.55);
+  color: var(--muted);
+  font-weight: 700;
+  text-align: left;
+}
+
+.sidebar-signout:hover { border-color: rgba(238,105,88,0.35); color: var(--primary-dark); }
+
 .card-label {
   margin: 0 0 10px;
   text-transform: uppercase;

@@ -145,6 +145,7 @@ const refs = {
   authMessage: document.querySelector('#authMessage'),
   userEmail: document.querySelector('#userEmail'),
   signOutButton: document.querySelector('#signOutButton'),
+  signOutSidebarButton: document.querySelector('#signOutSidebarButton'),
   manualButton: document.querySelector('#manualButton'),
   adminButton: document.querySelector('#adminButton'),
   manualPanel: document.querySelector('#manualPanel'),
@@ -1153,11 +1154,17 @@ if (refs.authToggle) {
     setAuthMessage('');
   });
 }
+async function signOut() {
+  if (!supabaseClient) return;
+  await supabaseClient.auth.signOut();
+  window.location.reload();
+}
+
 if (refs.signOutButton && supabaseClient) {
-  refs.signOutButton.addEventListener('click', async () => {
-    await supabaseClient.auth.signOut();
-    window.location.reload();
-  });
+  refs.signOutButton.addEventListener('click', signOut);
+}
+if (refs.signOutSidebarButton && supabaseClient) {
+  refs.signOutSidebarButton.addEventListener('click', signOut);
 }
 
 if (refs.manualButton) refs.manualButton.addEventListener('click', () => openModal(refs.manualPanel));
