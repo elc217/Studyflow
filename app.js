@@ -99,6 +99,9 @@ const refs = {
   taskFormWrap: document.querySelector('#taskFormWrap'),
   addTaskButton: document.querySelector('#addTaskButton'),
   editCalendarButton: document.querySelector('#editCalendarButton'),
+  printWeekButton: document.querySelector('#printWeekButton'),
+  downloadWeekJpeg: document.querySelector('#downloadWeekJpeg'),
+  downloadWeekWallpaper: document.querySelector('#downloadWeekWallpaper'),
   prevWeek: document.querySelector('#prevWeek'),
   nextWeek: document.querySelector('#nextWeek'),
   statTotal: document.querySelector('#statTotal'),
@@ -120,6 +123,7 @@ const refs = {
   exportBackupButton: document.querySelector('#exportBackupButton'),
   restoreBackupButton: document.querySelector('#restoreBackupButton'),
   backupFileInput: document.querySelector('#backupFileInput'),
+  replacePlanButton: document.querySelector('#replacePlanButton'),
   loadedPlanLabel: document.querySelector('#loadedPlanLabel'),
   planGeneratorForm: document.querySelector('#planGeneratorForm'),
   generatorStartDate: document.querySelector('#generatorStartDate'),
@@ -145,6 +149,7 @@ const refs = {
   noteForm: document.querySelector('#noteForm'),
   noteTask: document.querySelector('#noteTask'),
   noteSearch: document.querySelector('#noteSearch'),
+  printNotesReport: document.querySelector('#printNotesReport'),
   notesList: document.querySelector('#notesList'),
   timerDisplay: document.querySelector('#timerDisplay'),
   startTimer: document.querySelector('#startTimer'),
@@ -534,6 +539,80 @@ function renderCalendar() {
   renderDayDetail();
 }
 
+function escapeSvgText(value) {
+  return String(value ?? '').replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }[character]));
+}
+
+function buildWeeklySvg() {
+  const dates = getWeekDates(state.weekStart);
+  const label = `${formatDisplayDate(dates[0])} – ${formatDisplayDate(dates[6])}`;
+  const formatter = new Intl.DateTimeFormat('es-ES', { weekday: 'short', day: 'numeric', month: 'short' });
+  const width = 1920;
+  const height = 1080;
+  const left = 80;
+  const top = 190;
+  const gridWidth = width - left - 70;
+  const columnWidth = gridWidth / 7;
+  const rowHeight = 54;
+  const colors = { planificado: '#e85f50', 'en-curso': '#d99432', completado: '#2b9d78' };
+  const header = `<rect width="${width}" height="${height}" rx="36" fill="#f7f5ef"/><rect width="${width}" height="150" rx="36" fill="#17343a"/><text x="80" y="68" fill="#ee6958" font-family="Arial,sans-serif" font-size="22" font-weight="700" letter-spacing="4">STUDYFLOW · PLANIFICACIÓN</text><text x="80" y="116" fill="white" font-family="Arial,sans-serif" font-size="38" font-weight="700">${escapeSvgText(label)}</text><text x="${width - 80}" y="92" text-anchor="end" fill="#b8d1cc" font-family="Arial,sans-serif" font-size="18">Semana visible</text>`;
+  const dayHeaders = dates.map((date, index) => {
+    const x = left + index * columnWidth;
+    return `<rect x="${x}" y="${top}" width="${columnWidth}" height="64" fill="#edf2f1" stroke="#d3dedb"/><text x="${x + columnWidth / 2}" y="${top + 27}" text-anchor="middle" fill="#17343a" font-family="Arial,sans-serif" font-size="17" font-weight="700">${escapeSvgText(formatter.format(new Date(`${date}T00:00:00`)))}</text><text x="${x + columnWidth / 2}" y="${top + 50}" text-anchor="middle" fill="#68777d" font-family="Arial,sans-serif" font-size="13">${state.tasks.filter((task) => task.date === date).length} bloques</text>`;
+  }).join('');
+  const grid = dates.map((date, index) => {
+    const x = left + index * columnWidth;
+    const lines = Array.from({ length: 14 }, (_, row) => `<line x1="${x}" y1="${top + 64 + row * rowHeight}" x2="${x + columnWidth}" y2="${top + 64 + row * rowHeight}" stroke="#d3dedb" stroke-width="1"/>`).join('');
+    const tasks = state.tasks.filter((task) => task.date === date).sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime));
+    const blocks = tasks.map((task) => {
+      const start = Math.max(8 * 60, timeToMinutes(task.startTime || '09:00'));
+      const y = top + 64 + ((start - 8 * 60) / 60) * rowHeight + 5;
+      const blockHeight = Math.max(48, Math.min(190, (Number(task.duration) || 45) / 60 * rowHeight));
+      const fill = colors[task.status || (task.completed ? 'completado' : 'planificado')] || colors.planificado;
+      return `<rect x="${x + 9}" y="${y}" width="${columnWidth - 18}" height="${blockHeight}" rx="12" fill="${fill}"/><text x="${x + 23}" y="${y + 25}" fill="white" font-family="Arial,sans-serif" font-size="16" font-weight="700">${escapeSvgText(String(task.title).slice(0, 25))}</text><text x="${x + 23}" y="${y + 47}" fill="white" opacity=".9" font-family="Arial,sans-serif" font-size="13">${escapeSvgText(`${task.startTime || '09:00'} · ${task.duration} min`)}</text><text x="${x + 23}" y="${y + 66}" fill="white" opacity=".9" font-family="Arial,sans-serif" font-size="12">${escapeSvgText(String(task.subject).slice(0, 28))}</text>`;
+    }).join('');
+    return `<rect x="${x}" y="${top + 64}" width="${columnWidth}" height="${rowHeight * 14}" fill="${index % 2 ? '#ffffff' : '#fbfcfa'}" stroke="#d3dedb"/>${lines}${blocks}`;
+  }).join('');
+  const timeLabels = Array.from({ length: 14 }, (_, row) => `<text x="${left - 15}" y="${top + 64 + row * rowHeight + 22}" text-anchor="end" fill="#68777d" font-family="Arial,sans-serif" font-size="13">${String(8 + row).padStart(2, '0')}:00</text>`).join('');
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">${header}${timeLabels}${dayHeaders}${grid}<text x="80" y="1040" fill="#68777d" font-family="Arial,sans-serif" font-size="14">StudyFlow · Agenda semanal · ${escapeSvgText(formatDate(new Date()))}</text></svg>`;
+}
+
+function downloadExportBlob(blob, fileName) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = fileName;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+function downloadWeeklyWallpaper() {
+  downloadExportBlob(new Blob([buildWeeklySvg()], { type: 'image/svg+xml;charset=utf-8' }), `studyflow-semana-${formatDate(state.weekStart)}.svg`);
+}
+
+function downloadWeeklyJpeg() {
+  const objectUrl = URL.createObjectURL(new Blob([buildWeeklySvg()], { type: 'image/svg+xml;charset=utf-8' }));
+  const image = new Image();
+  image.onload = () => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1920;
+    canvas.height = 1080;
+    canvas.getContext('2d').drawImage(image, 0, 0);
+    canvas.toBlob((blob) => {
+      if (blob) downloadExportBlob(blob, `studyflow-semana-${formatDate(state.weekStart)}.jpg`);
+      URL.revokeObjectURL(objectUrl);
+    }, 'image/jpeg', 0.94);
+  };
+  image.src = objectUrl;
+}
+
+function printWeeklyPlan() {
+  const reportWindow = window.open('', '_blank');
+  if (!reportWindow) { alert('El navegador ha bloqueado la ventana de impresión. Permite ventanas emergentes para StudyFlow.'); return; }
+  reportWindow.document.write(`<!doctype html><html lang="es"><head><meta charset="UTF-8"><title>Plan semanal · StudyFlow</title><style>@page{size:landscape;margin:8mm}body{margin:0;background:#fff}img{display:block;width:100%;height:auto}</style></head><body><img src="data:image/svg+xml;charset=utf-8,${encodeURIComponent(buildWeeklySvg())}" alt="Plan semanal de StudyFlow"><script>window.addEventListener('load',()=>setTimeout(()=>window.print(),250));</script></body></html>`);
+  reportWindow.document.close();
+}
+
 function renderDayDetail() {
   const tasks = state.tasks
     .filter((task) => task.date === state.selectedDate)
@@ -665,6 +744,78 @@ function renderNotes() {
       </li>
     `;
   }).join('');
+}
+
+function escapeReportText(value) {
+  return String(value ?? '').replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[character]));
+}
+
+function printNotesReport() {
+  const query = (refs.noteSearch?.value || '').trim().toLowerCase();
+  const notes = state.notes.filter((note) => {
+    if (!query) return true;
+    return `${note.subject} ${note.topic || ''} ${note.text} ${note.date || ''}`.toLowerCase().includes(query);
+  }).sort((a, b) => String(b.date || b.createdAt).localeCompare(String(a.date || a.createdAt)));
+
+  if (!notes.length) {
+    alert('No hay errores que coincidan con el filtro actual.');
+    return;
+  }
+
+  const reportWindow = window.open('', '_blank');
+  if (!reportWindow) {
+    alert('El navegador ha bloqueado la ventana del informe. Permite ventanas emergentes para StudyFlow.');
+    return;
+  }
+
+  const generatedAt = new Intl.DateTimeFormat('es-ES', { dateStyle: 'long', timeStyle: 'short' }).format(new Date());
+  const rows = notes.map((note, index) => {
+    const task = state.tasks.find((item) => item.id === note.taskId);
+    const risk = calculateNoteRisk(note);
+    return `<article class="error-card">
+      <div class="error-number">${index + 1}</div>
+      <div class="error-content">
+        <div class="error-heading"><h2>${escapeReportText(note.subject)}</h2><span class="risk ${escapeReportText(risk.tone.className)}">${escapeReportText(risk.tone.label)}</span></div>
+        <p class="topic">${escapeReportText(note.topic || 'General')} · ${escapeReportText(note.date || note.createdAt || '')}</p>
+        <h3>Qué fallé y cómo corregirlo</h3><p>${escapeReportText(note.text).replace(/\n/g, '<br>')}</p>
+        <p class="meta">Dificultad: ${escapeReportText(note.difficulty || 'media')} · ${task ? `Tarea: ${escapeReportText(task.title)}` : 'Sin tarea asociada'}</p>
+        <div class="write-line">Repaso realizado / próxima acción:</div>
+      </div>
+    </article>`;
+  }).join('');
+
+  reportWindow.document.write(`<!doctype html><html lang="es"><head><meta charset="UTF-8"><title>Informe de errores · StudyFlow</title><style>
+    @page { size: A4; margin: 16mm 14mm; }
+    * { box-sizing: border-box; }
+    body { margin: 0; color: #17252b; font: 11pt/1.5 Arial, sans-serif; background: #fff; }
+    .report { max-width: 180mm; margin: 0 auto; }
+    .report-header { padding-bottom: 18px; border-bottom: 4px solid #ee6958; }
+    .eyebrow { margin: 0 0 5px; color: #3d7c78; font-size: 9pt; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
+    h1 { margin: 0; color: #17343a; font: 700 25pt/1.1 Arial, sans-serif; }
+    .subtitle { margin: 8px 0 0; color: #68777d; }
+    .summary { display: flex; gap: 10px; margin: 18px 0; }
+    .stat { flex: 1; padding: 10px 12px; border: 1px solid #d3dedb; border-radius: 8px; background: #f7f5ef; }
+    .stat strong { display: block; color: #17343a; font-size: 17pt; }
+    .stat span { color: #68777d; font-size: 8.5pt; }
+    .error-card { display: flex; gap: 12px; margin: 0 0 18px; padding: 14px 0 18px; border-bottom: 1px solid #d3dedb; break-inside: avoid; }
+    .error-number { display: grid; flex: 0 0 28px; width: 28px; height: 28px; place-items: center; border-radius: 50%; background: #17343a; color: #fff; font-weight: 700; }
+    .error-content { flex: 1; }
+    .error-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    h2 { margin: 0; color: #17343a; font-size: 15pt; }
+    h3 { margin: 12px 0 3px; color: #3d7c78; font-size: 10pt; }
+    p { margin: 5px 0; }
+    .topic, .meta { color: #68777d; font-size: 9pt; }
+    .risk { padding: 3px 7px; border-radius: 999px; background: #edf2f1; color: #3d7c78; font-size: 8pt; font-weight: 700; }
+    .risk.high, .risk.urgent { background: #fff0ed; color: #b8453a; }
+    .write-line { min-height: 28px; margin-top: 14px; padding-top: 7px; border-top: 1px dashed #aebdb9; color: #68777d; font-size: 9pt; }
+    .footer { margin-top: 24px; padding-top: 10px; border-top: 1px solid #d3dedb; color: #68777d; font-size: 8pt; }
+    @media print { .no-print { display: none; } }
+  </style></head><body><main class="report">
+    <header class="report-header"><p class="eyebrow">StudyFlow · seguimiento</p><h1>Informe de errores</h1><p class="subtitle">Generado el ${escapeReportText(generatedAt)}${query ? ` · Filtro: ${escapeReportText(query)}` : ''}</p></header>
+    <section class="summary"><div class="stat"><strong>${notes.length}</strong><span>errores registrados</span></div><div class="stat"><strong>${notes.filter((note) => note.needsReview).length}</strong><span>pendientes de repaso</span></div><div class="stat"><strong>${new Set(notes.map((note) => note.subject)).size}</strong><span>materias</span></div></section>
+    ${rows}<p class="footer">StudyFlow · Utiliza este informe para revisar, anotar la corrección y decidir la próxima acción.</p>
+  </main><script>window.addEventListener('load', () => setTimeout(() => window.print(), 250));</script></body></html>`);
+  reportWindow.document.close();
 }
 
 function renderReviewSuggestions() {
@@ -917,6 +1068,30 @@ function importPlanFromMarkdown(markdown, sourceName = '') {
   if (sourceName) setLoadedPlanLabel(sourceName);
   refs.planMarkdown.value = '';
   refs.planFileInput.value = '';
+}
+
+async function clearCurrentStudyPlan() {
+  if (!state.tasks.length) {
+    alert('No hay tareas en la planificación actual.');
+    return;
+  }
+  const confirmed = window.confirm(`Se eliminarán ${state.tasks.length} tareas del calendario. Tus notas, tests y copias no se modificarán. ¿Continuar?`);
+  if (!confirmed) return;
+
+  state.tasks = [];
+  saveData(STORAGE_KEYS.tasks, state.tasks);
+  if (currentUser && supabaseClient) {
+    const { error } = await supabaseClient.from('tasks').delete().eq('user_id', currentUser.id);
+    if (error) console.error('No se pudo limpiar la planificación remota:', error.message);
+  }
+  state.selectedDate = formatDate(new Date());
+  state.weekStart = getStartOfWeek(new Date());
+  renderStats();
+  renderCalendar();
+  updateNoteTaskOptions();
+  setLoadedPlanLabel('Sin archivo de planificación cargado');
+  refs.planMarkdown.value = '';
+  alert('Planificación eliminada. Ya puedes generar o importar el nuevo plan.');
 }
 
 let generatedPlanMarkdown = '';
@@ -1302,6 +1477,10 @@ refs.nextWeek.addEventListener('click', () => {
   renderCalendar();
 });
 
+if (refs.printWeekButton) refs.printWeekButton.addEventListener('click', printWeeklyPlan);
+if (refs.downloadWeekJpeg) refs.downloadWeekJpeg.addEventListener('click', downloadWeeklyJpeg);
+if (refs.downloadWeekWallpaper) refs.downloadWeekWallpaper.addEventListener('click', downloadWeeklyWallpaper);
+
 refs.navButtons.forEach((button) => {
   button.addEventListener('click', () => {
     refs.navButtons.forEach((item) => item.classList.toggle('active', item === button));
@@ -1344,6 +1523,8 @@ refs.importPlanButton.addEventListener('click', () => {
   const label = refs.loadedPlanLabel.textContent;
   importPlanFromMarkdown(refs.planMarkdown.value, label === 'Sin archivo de planificación cargado' ? '' : label.replace('Plan activo: ', ''));
 });
+
+if (refs.replacePlanButton) refs.replacePlanButton.addEventListener('click', clearCurrentStudyPlan);
 
 if (refs.planGeneratorForm) {
   refs.generatorStartDate.value = formatDate(new Date());
@@ -1416,6 +1597,7 @@ if (refs.noteForm) {
 }
 
 if (refs.noteSearch) refs.noteSearch.addEventListener('input', renderNotes);
+if (refs.printNotesReport) refs.printNotesReport.addEventListener('click', printNotesReport);
 
 refs.timerButtons.forEach((button) => button.addEventListener('click', () => updateTimerTo(Number(button.dataset.minutes))));
 if (refs.applyCustomTimer) {

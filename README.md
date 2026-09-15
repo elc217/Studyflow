@@ -21,6 +21,9 @@ Organizador visual de estudio con agenda semanal por horas, temporizador flexibl
 - Manual de usuario integrado y guia descargable en `manual-usuario-studyflow.pdf`.
 - Pausas recomendadas o personalizadas según horas, edad y dificultad.
 - Análisis página a página de temarios PDF completos y reparto por clases semanales de cada parte.
+- Informe imprimible del cuaderno de errores, exportable a PDF desde el navegador.
+- Exportacion de la semana visible como PDF/impresion, JPEG o fondo SVG escalable.
+- Sustitucion segura de la planificacion actual sin borrar notas ni resultados.
 
 ## Ejecutar localmente
 

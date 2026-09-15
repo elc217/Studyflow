@@ -367,6 +367,8 @@ button { cursor: pointer; }
   flex-wrap: wrap;
 }
 
+.calendar-export-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+
 .secondary-btn.active {
   background: var(--text);
   color: #fff;
@@ -705,6 +707,7 @@ button { cursor: pointer; }
 .generator-actions button { flex: 1 1 140px; }
 .generator-summary { margin-top: 14px; padding: 10px 12px; border-left: 3px solid var(--success); background: rgba(43,157,120,0.08); color: var(--muted); font-size: 0.76rem; line-height: 1.45; }
 .generator-summary strong { color: var(--text); }
+.plan-replace-help { margin: -4px 0 0; }
 
 .import-actions {
   display: flex;
@@ -738,7 +741,13 @@ button { cursor: pointer; }
 
 .notes-tools {
   margin: 14px 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
+
+.notes-tools input { flex: 1 1 180px; }
 
 .history-list {
   list-style: none;
