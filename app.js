@@ -9,6 +9,7 @@ const SUPABASE_ANON_KEY = 'sb_publishable_i4lrF89M1YcyFmkjY9s_JA_zLA7MMOC';
 const supabaseClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 let currentUser = null;
 let currentProfile = null;
+let adminUsers = [];
 
 function formatDate(date) {
   const year = date.getFullYear();
@@ -155,6 +156,10 @@ const refs = {
   adminUsersList: document.querySelector('#adminUsersList'),
   adminMessage: document.querySelector('#adminMessage'),
   refreshAdminButton: document.querySelector('#refreshAdminButton'),
+  adminUserSearch: document.querySelector('#adminUserSearch'),
+  adminStatusFilter: document.querySelector('#adminStatusFilter'),
+  adminPlanFilter: document.querySelector('#adminPlanFilter'),
+  exportAdminButton: document.querySelector('#exportAdminButton'),
 };
 
 function loadData(key, fallback) {
@@ -230,14 +235,20 @@ async function loadRemoteData() {
 
 async function loadCurrentProfile() {
   if (!currentUser || !supabaseClient) return;
-  const { data, error } = await supabaseClient.from('profiles').select('display_name, role').eq('id', currentUser.id).maybeSingle();
+  const { data, error } = await supabaseClient.from('profiles').select('display_name, role, status, plan').eq('id', currentUser.id).maybeSingle();
   if (error) {
     console.warn('No se pudo cargar el perfil:', error.message);
     return;
   }
   currentProfile = data;
+  if (data?.status === 'suspended') {
+    await supabaseClient.auth.signOut();
+    setAuthMessage('Esta cuenta está suspendida. Contacta con administración.', true);
+    return false;
+  }
   const isAdmin = data?.role === 'admin';
   refs.adminButton.hidden = !isAdmin;
+  return true;
 }
 
 function openModal(panel) {
@@ -256,19 +267,43 @@ async function loadAdminSummary() {
     refs.adminMessage.classList.add('error');
     return;
   }
-  const users = data || [];
+  adminUsers = data || [];
+  const users = adminUsers;
   refs.adminUserCount.textContent = users.length;
   refs.adminActivityCount.textContent = users.reduce((sum, user) => sum + Number(user.activity_count || 0), 0);
+  renderAdminUsers();
+}
+
+function renderAdminUsers() {
+  const search = refs.adminUserSearch.value.trim().toLowerCase();
+  const status = refs.adminStatusFilter.value;
+  const plan = refs.adminPlanFilter.value;
+  const users = adminUsers.filter((user) => {
+    const matchesSearch = !search || `${user.email || ''} ${user.display_name || ''}`.toLowerCase().includes(search);
+    return matchesSearch && (status === 'all' || user.status === status) && (plan === 'all' || user.plan === plan);
+  });
   refs.adminUsersList.innerHTML = users.map((user) => `
     <tr data-admin-user-id="${user.id}">
       <td><strong>${user.display_name || 'Sin nombre'}</strong><small>${user.email || ''}</small></td>
       <td><select data-admin-field="role"><option value="user" ${user.role === 'user' ? 'selected' : ''}>Usuario</option><option value="admin" ${user.role === 'admin' ? 'selected' : ''}>Admin</option></select></td>
       <td><select data-admin-field="plan"><option value="free" ${user.plan === 'free' ? 'selected' : ''}>Free</option><option value="trial" ${user.plan === 'trial' ? 'selected' : ''}>Prueba</option><option value="paid" ${user.plan === 'paid' ? 'selected' : ''}>Pago</option></select></td>
       <td><select data-admin-field="status"><option value="active" ${user.status !== 'suspended' ? 'selected' : ''}>Activo</option><option value="suspended" ${user.status === 'suspended' ? 'selected' : ''}>Suspendido</option></select></td>
-      <td>${user.activity_count || 0}</td>
+      <td><small>Tareas: ${user.task_count || 0} · Tests: ${user.test_count || 0} · Errores: ${user.note_count || 0}</small></td>
+      <td><small>${user.last_activity ? new Date(user.last_activity).toLocaleString('es-ES') : 'Sin actividad'}</small></td>
       <td class="admin-actions"><button class="ghost-btn small" data-admin-action="save" type="button">Guardar</button><button class="ghost-btn small danger-btn" data-admin-action="delete" type="button">Eliminar</button></td>
     </tr>
   `).join('');
+}
+
+function exportAdminUsers() {
+  const header = ['email', 'nombre', 'rol', 'plan', 'estado', 'tareas', 'tests', 'errores', 'actividad'];
+  const rows = adminUsers.map((user) => [user.email, user.display_name, user.role, user.plan, user.status, user.task_count, user.test_count, user.note_count, user.activity_count]);
+  const csv = [header, ...rows].map((row) => row.map((value) => `"${String(value ?? '').replaceAll('"', '""')}"`).join(';')).join('\n');
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(new Blob([`\ufeff${csv}`], { type: 'text/csv;charset=utf-8' }));
+  link.download = `studyflow-usuarios-${formatDate(new Date())}.csv`;
+  link.click();
+  URL.revokeObjectURL(link.href);
 }
 
 async function updateAdminUser(userId, row) {
@@ -319,7 +354,12 @@ async function handleAuthSubmit(event) {
 
 async function initializeAuthenticatedApp(user) {
   currentUser = user;
-  await loadCurrentProfile();
+  const profileReady = await loadCurrentProfile();
+  if (!profileReady) {
+    refs.authPanel.hidden = false;
+    document.querySelector('.app-shell').hidden = true;
+    return;
+  }
   logUsage('session_started');
   await loadRemoteData();
   refs.authPanel.hidden = true;
@@ -1173,6 +1213,10 @@ if (refs.adminButton) refs.adminButton.addEventListener('click', async () => {
   await loadAdminSummary();
 });
 if (refs.refreshAdminButton) refs.refreshAdminButton.addEventListener('click', loadAdminSummary);
+if (refs.adminUserSearch) refs.adminUserSearch.addEventListener('input', renderAdminUsers);
+if (refs.adminStatusFilter) refs.adminStatusFilter.addEventListener('change', renderAdminUsers);
+if (refs.adminPlanFilter) refs.adminPlanFilter.addEventListener('change', renderAdminUsers);
+if (refs.exportAdminButton) refs.exportAdminButton.addEventListener('click', exportAdminUsers);
 if (refs.adminUsersList) refs.adminUsersList.addEventListener('click', async (event) => {
   const action = event.target.closest('[data-admin-action]');
   const row = event.target.closest('[data-admin-user-id]');

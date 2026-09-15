@@ -75,6 +75,7 @@ drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created after insert on auth.users
 for each row execute procedure public.handle_new_user();
 
+drop function if exists public.admin_list_users();
 create or replace function public.admin_list_users()
 returns table (
   id uuid,
@@ -83,7 +84,11 @@ returns table (
   role text,
   plan text,
   status text,
-  activity_count bigint
+  activity_count bigint,
+  task_count bigint,
+  test_count bigint,
+  note_count bigint,
+  last_activity timestamptz
 )
 language plpgsql
 security definer
@@ -93,7 +98,11 @@ begin
   if not public.is_admin() then raise exception 'not authorized'; end if;
   return query
     select p.id, u.email::text, p.display_name, p.role, p.plan, p.status,
-      (select count(*) from public.usage_events e where e.user_id = p.id) as activity_count
+      (select count(*) from public.usage_events e where e.user_id = p.id) as activity_count,
+      (select count(*) from public.tasks t where t.user_id = p.id) as task_count,
+      (select count(*) from public.tests t where t.user_id = p.id) as test_count,
+      (select count(*) from public.notes n where n.user_id = p.id) as note_count,
+      (select max(e.created_at) from public.usage_events e where e.user_id = p.id) as last_activity
     from public.profiles p
     join auth.users u on u.id = p.id
     order by p.created_at asc;

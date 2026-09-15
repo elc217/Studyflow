@@ -335,12 +335,16 @@
         </div>
         <p id="adminMessage" class="auth-message">Gestiona usuarios y planes desde este panel.</p>
         <div class="admin-toolbar">
+          <input id="adminUserSearch" class="admin-search" type="search" placeholder="Buscar usuario por email o nombre" />
+          <select id="adminStatusFilter" class="admin-filter"><option value="all">Todos los estados</option><option value="active">Activos</option><option value="suspended">Suspendidos</option></select>
+          <select id="adminPlanFilter" class="admin-filter"><option value="all">Todos los planes</option><option value="free">Free</option><option value="trial">Prueba</option><option value="paid">Pago</option></select>
           <button id="refreshAdminButton" class="secondary-btn small" type="button">Actualizar usuarios</button>
+          <button id="exportAdminButton" class="ghost-btn small" type="button">Exportar CSV</button>
         </div>
         <div class="admin-table-wrap">
           <table class="admin-table">
             <thead>
-              <tr><th>Usuario</th><th>Rol</th><th>Plan</th><th>Estado</th><th>Actividad</th><th>Acciones</th></tr>
+              <tr><th>Usuario</th><th>Rol</th><th>Plan</th><th>Estado</th><th>Uso</th><th>Última actividad</th><th>Acciones</th></tr>
             </thead>
             <tbody id="adminUsersList"></tbody>
           </table>
