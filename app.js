@@ -4,6 +4,11 @@ const STORAGE_KEYS = {
   notes: 'studyflow-notes',
 };
 
+function getUserStorageKey(key) {
+  const userId = currentUser?.id || 'guest';
+  return `studyflow-${userId}-${key}`;
+}
+
 const SUPABASE_URL = 'https://ymlinhhriprtyhaamsrz.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_i4lrF89M1YcyFmkjY9s_JA_zLA7MMOC';
 const supabaseClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -78,10 +83,16 @@ const defaultNotes = [
   },
 ];
 
+function loadCurrentUserState() {
+  state.tasks = loadData(STORAGE_KEYS.tasks, defaultTasks).filter((task) => !sampleTaskIds.has(task.id)).map(normalizeTask);
+  state.tests = loadData(STORAGE_KEYS.tests, defaultTestHistory);
+  state.notes = loadData(STORAGE_KEYS.notes, defaultNotes).map(normalizeNote);
+}
+
 const state = {
-  tasks: loadData(STORAGE_KEYS.tasks, defaultTasks).filter((task) => !sampleTaskIds.has(task.id)).map(normalizeTask),
-  tests: loadData(STORAGE_KEYS.tests, defaultTestHistory),
-  notes: loadData(STORAGE_KEYS.notes, defaultNotes).map(normalizeNote),
+  tasks: [],
+  tests: [],
+  notes: [],
   filter: 'all',
   selectedMinutes: 25,
   timerSeconds: 25 * 60,
@@ -128,12 +139,22 @@ const refs = {
   replacePlanButton: document.querySelector('#replacePlanButton'),
   loadedPlanLabel: document.querySelector('#loadedPlanLabel'),
   planGeneratorForm: document.querySelector('#planGeneratorForm'),
+  generatorCourseType: document.querySelector('#generatorCourseType'),
+  generatorGenericCourseFields: document.querySelector('#generatorGenericCourseFields'),
+  generatorOposicionesFields: document.querySelector('#generatorOposicionesFields'),
   generatorStartDate: document.querySelector('#generatorStartDate'),
   generatorExamDate: document.querySelector('#generatorExamDate'),
   generatorAge: document.querySelector('#generatorAge'),
   generatorHours: document.querySelector('#generatorHours'),
   generatorSyllabi: document.querySelector('#generatorSyllabi'),
   generatorTopics: document.querySelector('#generatorTopics'),
+  generatorGeneralTemario: document.querySelector('#generatorGeneralTemario'),
+  generatorGeneralTemas: document.querySelector('#generatorGeneralTemas'),
+  generatorGeneralClases: document.querySelector('#generatorGeneralClases'),
+  generatorSpecificTemario: document.querySelector('#generatorSpecificTemario'),
+  generatorSpecificTemas: document.querySelector('#generatorSpecificTemas'),
+  generatorSpecificClases: document.querySelector('#generatorSpecificClases'),
+  generatorConvocatoriaIndex: document.querySelector('#generatorConvocatoriaIndex'),
   generatorSyllabusDetails: document.querySelector('#generatorSyllabusDetails'),
   generatorBreakMode: document.querySelector('#generatorBreakMode'),
   generatorBreakEvery: document.querySelector('#generatorBreakEvery'),
@@ -188,7 +209,8 @@ const refs = {
 
 function loadData(key, fallback) {
   try {
-    const raw = localStorage.getItem(key);
+    const storageKey = getUserStorageKey(key);
+    const raw = localStorage.getItem(storageKey);
     if (!raw) return fallback;
     const data = JSON.parse(raw);
     return Array.isArray(data) && data.length ? data : fallback;
@@ -198,7 +220,7 @@ function loadData(key, fallback) {
 }
 
 function saveData(key, value) {
-  localStorage.setItem(key, JSON.stringify(value));
+  localStorage.setItem(getUserStorageKey(key), JSON.stringify(value));
   if (currentUser && supabaseClient) syncCollection(key, value);
 }
 
@@ -384,6 +406,7 @@ async function initializeAuthenticatedApp(user) {
     document.querySelector('.app-shell').hidden = true;
     return;
   }
+  loadCurrentUserState();
   logUsage('session_started');
   await loadRemoteData();
   refs.authPanel.hidden = true;
@@ -395,6 +418,13 @@ async function initializeAuthenticatedApp(user) {
   updateNoteTaskOptions();
   renderNotes();
   renderReviewSuggestions();
+}
+
+function resetGuestData() {
+  currentUser = null;
+  currentProfile = null;
+  loadCurrentUserState();
+  if (refs.userEmail) refs.userEmail.textContent = '';
 }
 
 async function initializeAuth() {
@@ -1217,6 +1247,26 @@ function getSyllabusOptions() {
   }));
 }
 
+function getCourseSyllabusOptions() {
+  const courseType = refs.generatorCourseType.value;
+  if (courseType === 'oposiciones') {
+    const generalName = (refs.generatorGeneralTemario.value || 'Temario general').trim() || 'Temario general';
+    const specificName = (refs.generatorSpecificTemario.value || 'Temario específico').trim() || 'Temario específico';
+    return [
+      { name: generalName, topicCount: Number(refs.generatorGeneralTemas.value) || 12, classesPerWeek: Number(refs.generatorGeneralClases.value) || 2 },
+      { name: specificName, topicCount: Number(refs.generatorSpecificTemas.value) || 12, classesPerWeek: Number(refs.generatorSpecificClases.value) || 3 },
+    ];
+  }
+  return getSyllabusOptions();
+}
+
+function renderCourseTypeFields() {
+  const isOposiciones = refs.generatorCourseType.value === 'oposiciones';
+  refs.generatorGenericCourseFields.hidden = isOposiciones;
+  refs.generatorOposicionesFields.hidden = !isOposiciones;
+  refs.generatorSyllabusDetails.hidden = isOposiciones;
+}
+
 function orderTopicsByClasses(topics, syllabusOptions) {
   const bySyllabus = syllabusOptions.map((syllabus) => topics.filter((topic) => topic.syllabus === syllabus.name));
   const ordered = [];
@@ -1616,8 +1666,14 @@ if (refs.planGeneratorForm) {
     const count = refs.generatorFiles.files.length;
     refs.generatorFileStatus.textContent = count ? `${count} PDF(s) listo(s) para analizar.` : '';
   });
+  refs.generatorCourseType.addEventListener('change', renderCourseTypeFields);
+  refs.generatorCourseType.addEventListener('change', () => {
+    refs.generatorSyllabusDetails.innerHTML = '';
+    renderSyllabusDetails();
+  });
   refs.planGeneratorForm.addEventListener('submit', generateStudyPlan);
   refs.downloadGeneratedPlan.addEventListener('click', downloadGeneratedPlanFile);
+  renderCourseTypeFields();
 }
 
 refs.exportBackupButton.addEventListener('click', exportBackup);
