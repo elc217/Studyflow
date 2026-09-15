@@ -26,6 +26,7 @@ Organizador visual de estudio con agenda semanal por horas, temporizador flexibl
 - Sustitucion segura de la planificacion actual sin borrar notas ni resultados.
 - Repaso espaciado orientativo a 1, 3, 7, 14 y 21 dias con una accion concreta por bloque.
 - Seguimiento semanal de cumplimiento, minutos, pendientes, errores y tests con sugerencias de ajuste.
+- Preguntas/test y supuesto práctico obligatorios al terminar cada tema, ajustados a la dificultad.
 
 ## Ejecutar localmente
 

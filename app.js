@@ -1260,10 +1260,16 @@ function createGeneratorSchedule(topics, options) {
     }
   };
 
-  topics.forEach((topic) => addWork(topic.minutes, topic.title, topic.syllabus, topic.difficulty, topic.difficulty === 'alta' ? 'Alta' : 'Media', studyDates, (date) => {
+  topics.forEach((topic) => {
     const key = `${topic.syllabus}|${topic.title}`;
-    if (!firstStudyDates.has(key)) firstStudyDates.set(key, date);
-  }));
+    addWork(topic.minutes, topic.title, topic.syllabus, topic.difficulty, topic.difficulty === 'alta' ? 'Alta' : 'Media', studyDates, (date) => {
+      if (!firstStudyDates.has(key)) firstStudyDates.set(key, date);
+    });
+    const questionMinutes = topic.difficulty === 'alta' ? 40 : topic.difficulty === 'media' ? 30 : 20;
+    const practicalMinutes = topic.difficulty === 'alta' ? 50 : topic.difficulty === 'media' ? 40 : 30;
+    addWork(questionMinutes, `Preguntas obligatorias: ${topic.title} · test y recuerdo activo`, topic.syllabus, topic.difficulty, 'Alta', studyDates);
+    addWork(practicalMinutes, `Supuesto práctico obligatorio: ${topic.title} · aplicar y justificar`, topic.syllabus, topic.difficulty, 'Alta', studyDates);
+  });
 
   const reviewActions = [
     { days: 1, label: 'Recuerdo activo: explica sin apuntes', minutes: 25 },
