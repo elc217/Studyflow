@@ -1046,7 +1046,8 @@ async function readTextFromFile(file) {
   }
   if (extension === 'pdf') {
     const buffer = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
+    const pdfjs = await loadPdfJs();
+    const pdf = await pdfjs.getDocument({ data: buffer }).promise;
     let text = '';
     for (let i = 1; i <= pdf.numPages; i += 1) {
       const page = await pdf.getPage(i);
@@ -1262,8 +1263,17 @@ function escapeHtml(value) {
   return String(value || '').replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[character]));
 }
 
+const PDFJS_MODULE_URL = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.mjs';
+const PDFJS_WORKER_URL = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.mjs';
+
+async function loadPdfJs() {
+  const pdfjs = await import(PDFJS_MODULE_URL);
+  pdfjs.GlobalWorkerOptions.workerSrc = PDFJS_WORKER_URL;
+  return pdfjs;
+}
+
 async function extractPdfText(file, onProgress) {
-  const pdfjs = await import('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.mjs');
+  const pdfjs = await loadPdfJs();
   const pdf = await pdfjs.getDocument({ data: await file.arrayBuffer() }).promise;
   const pageCount = pdf.numPages;
   const pages = [];
@@ -1406,7 +1416,7 @@ async function runGeneratorPdfOcr() {
   refs.ocrGeneratorPdfs.disabled = true;
   refs.generatorFileStatus.textContent = 'Preparando OCR opcional...';
   try {
-    const pdfjs = await import('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.mjs');
+    const pdfjs = await loadPdfJs();
     const tesseract = await import('https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.esm.min.js');
     const pdf = await pdfjs.getDocument({ data: await file.arrayBuffer() }).promise;
     const worker = await tesseract.createWorker('spa');
