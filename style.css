@@ -627,6 +627,35 @@ button { cursor: pointer; }
   background: rgba(122,18,29,0.32);
 }
 
+.quick-task-menu {
+  position: fixed;
+  z-index: 3000;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 170px;
+  padding: 8px;
+  border: 1px solid rgba(23, 37, 43, 0.12);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 16px 30px rgba(17, 24, 39, 0.18);
+}
+
+.quick-task-option {
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 8px 10px;
+  background: rgba(23, 37, 43, 0.02);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.quick-task-option:hover {
+  background: rgba(238, 105, 88, 0.06);
+}
+
 .side-stack {
   display: flex;
   flex-direction: column;

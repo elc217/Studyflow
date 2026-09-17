@@ -104,6 +104,8 @@ const state = {
   selectedDate: formatDate(new Date()),
 };
 
+let lastQuickTapAt = 0;
+
 const refs = {
   taskForm: document.querySelector('#taskForm'),
   taskFormSubmit: document.querySelector('#taskForm button[type="submit"]'),
@@ -619,6 +621,93 @@ function reschedulePendingTasks() {
   alert(`${pending.length} tareas replanificadas sin sobrecargar los días laborables.`);
 }
 
+function getTaskDisplayStatus(task) {
+  return task.status || (task.completed ? 'completado' : 'planificado');
+}
+
+function buildTaskLayoutForDate(tasks) {
+  const sortedTasks = [...tasks].sort((first, second) => timeToMinutes(first.startTime || '09:00') - timeToMinutes(second.startTime || '09:00'));
+  const columns = [];
+  const taskColumnMap = new Map();
+
+  sortedTasks.forEach((task) => {
+    const start = timeToMinutes(task.startTime || '09:00');
+    const end = start + (Number(task.duration) || 45);
+    let columnIndex = 0;
+
+    while (columnIndex < columns.length) {
+      const overlaps = columns[columnIndex].some((columnTask) => {
+        const columnStart = timeToMinutes(columnTask.startTime || '09:00');
+        const columnEnd = columnStart + (Number(columnTask.duration) || 45);
+        return start < columnEnd && end > columnStart;
+      });
+
+      if (!overlaps) break;
+      columnIndex += 1;
+    }
+
+    if (!columns[columnIndex]) columns[columnIndex] = [];
+    columns[columnIndex].push(task);
+    taskColumnMap.set(task.id, { columnIndex, totalColumns: columns.length || 1 });
+  });
+
+  const totalColumns = Math.max(1, columns.length);
+
+  return sortedTasks.map((task) => {
+    const layout = taskColumnMap.get(task.id) || { columnIndex: 0, totalColumns };
+    const width = 100 / totalColumns;
+    return {
+      ...task,
+      totalColumns,
+      columnIndex: layout.columnIndex,
+      leftPercent: Math.max(2, layout.columnIndex * width + 2),
+      widthPercent: Math.max(18, width - 4),
+    };
+  });
+}
+
+function closeQuickTaskMenu() {
+  document.querySelectorAll('.quick-task-menu').forEach((menu) => menu.remove());
+}
+
+function applyTaskCompletion(taskId, completed) {
+  const task = state.tasks.find((item) => item.id === taskId);
+  if (!task) return;
+
+  task.completed = Boolean(completed);
+  task.status = completed ? 'completado' : 'planificado';
+  saveData(STORAGE_KEYS.tasks, state.tasks.map(normalizeTask));
+  renderStats();
+  renderCalendar();
+  updateNoteTaskOptions();
+  closeQuickTaskMenu();
+}
+
+function openQuickTaskMenu(event, task) {
+  closeQuickTaskMenu();
+  const menu = document.createElement('div');
+  menu.className = 'quick-task-menu';
+  menu.innerHTML = `
+    <button type="button" class="quick-task-option" data-quick-action="complete">✓ Completar</button>
+    <button type="button" class="quick-task-option" data-quick-action="pending">↺ Pendiente</button>
+    <button type="button" class="quick-task-option" data-quick-action="edit">✎ Editar</button>
+  `;
+
+  const clickX = event.clientX ?? window.innerWidth * 0.5;
+  const clickY = event.clientY ?? window.innerHeight * 0.5;
+  menu.style.left = `${Math.min(clickX, window.innerWidth - 180)}px`;
+  menu.style.top = `${Math.min(clickY, window.innerHeight - 120)}px`;
+
+  menu.querySelector('[data-quick-action="complete"]').addEventListener('click', () => applyTaskCompletion(task.id, true));
+  menu.querySelector('[data-quick-action="pending"]').addEventListener('click', () => applyTaskCompletion(task.id, false));
+  menu.querySelector('[data-quick-action="edit"]').addEventListener('click', () => {
+    closeQuickTaskMenu();
+    fillTaskForm(task);
+  });
+
+  document.body.appendChild(menu);
+}
+
 function renderCalendar() {
   const dates = getWeekDates(state.weekStart);
   const hours = Array.from({ length: 14 }, (_, index) => 8 * 60 + index * 60);
@@ -631,27 +720,26 @@ function renderCalendar() {
   `)].join('');
 
   const columns = dates.map((date) => {
-    const items = state.tasks
-      .filter((task) => task.date === date)
-      .map((task) => {
-        const start = timeToMinutes(task.startTime || '09:00');
-        const top = ((start - 8 * 60) / 60) * 68;
-        const height = Math.max(((Number(task.duration) || 45) / 60) * 68, 44);
-        const status = task.status || (task.completed ? 'completado' : 'planificado');
-        const editActions = state.editMode ? `
+    const tasksForDate = state.tasks.filter((task) => task.date === date);
+    const laidOutTasks = buildTaskLayoutForDate(tasksForDate);
+    const items = laidOutTasks.map((task) => {
+      const start = timeToMinutes(task.startTime || '09:00');
+      const top = ((start - 8 * 60) / 60) * 68;
+      const height = Math.max(((Number(task.duration) || 45) / 60) * 68, 44);
+      const status = getTaskDisplayStatus(task);
+      const editActions = state.editMode ? `
               <span class="session-actions">
                 <button class="session-action" type="button" data-action="edit" aria-label="Editar tarea">Editar</button>
                 <button class="session-action danger" type="button" data-action="delete" aria-label="Eliminar tarea">Eliminar</button>
               </span>` : '';
-        return `
-          <div class="session-block ${state.editMode ? 'editable' : ''}" data-task-id="${task.id}" data-date="${date}" data-status="${status}" style="top:${top}px; height:${height}px;">
+      return `
+          <div class="session-block ${state.editMode ? 'editable' : ''}" data-task-id="${task.id}" data-date="${date}" data-status="${status}" style="top:${top}px; height:${height}px; left:${task.leftPercent}%; width:${task.widthPercent}%;">
             <strong>${task.title}</strong>
             <small>${task.subject} · ${task.duration} min</small>
             ${editActions}
           </div>
         `;
-      })
-      .join('');
+    }).join('');
 
     const slots = Array.from({ length: 14 }, (_, index) => `<div class="hour-slot" data-date="${date}" data-hour="${8 + index}"></div>`).join('');
 
@@ -1968,6 +2056,7 @@ refs.taskForm.addEventListener('submit', (event) => {
 refs.calendarGrid.addEventListener('click', (event) => {
   const action = event.target.closest('[data-action]');
   const block = event.target.closest('[data-task-id]');
+  closeQuickTaskMenu();
   if (action && block) {
     event.stopPropagation();
     const task = state.tasks.find((item) => item.id === block.dataset.taskId);
@@ -1989,6 +2078,54 @@ refs.calendarGrid.addEventListener('click', (event) => {
   if (!target) return;
   state.selectedDate = target.dataset.date;
   renderCalendar();
+});
+
+refs.calendarGrid.addEventListener('contextmenu', (event) => {
+  const block = event.target.closest('[data-task-id]');
+  if (!block) return;
+  event.preventDefault();
+  event.stopPropagation();
+  const task = state.tasks.find((item) => item.id === block.dataset.taskId);
+  if (!task) return;
+  openQuickTaskMenu(event, task);
+});
+
+refs.calendarGrid.addEventListener('dblclick', (event) => {
+  const block = event.target.closest('[data-task-id]');
+  if (!block) return;
+  event.preventDefault();
+  event.stopPropagation();
+  const task = state.tasks.find((item) => item.id === block.dataset.taskId);
+  if (!task) return;
+  openQuickTaskMenu(event, task);
+});
+
+refs.calendarGrid.addEventListener('touchstart', (event) => {
+  const block = event.target.closest('[data-task-id]');
+  if (!block) return;
+  const touch = event.changedTouches && event.changedTouches[0];
+  if (!touch) return;
+  const now = Date.now();
+  const task = state.tasks.find((item) => item.id === block.dataset.taskId);
+  if (!task) return;
+
+  if (now - lastQuickTapAt < 320) {
+    event.preventDefault();
+    event.stopPropagation();
+    openQuickTaskMenu({ clientX: touch.clientX, clientY: touch.clientY }, task);
+    lastQuickTapAt = 0;
+    return;
+  }
+
+  lastQuickTapAt = now;
+}, { passive: false });
+
+document.addEventListener('click', (event) => {
+  const menu = event.target.closest('.quick-task-menu');
+  const trigger = event.target.closest('[data-task-id]');
+  if (!menu && !trigger) {
+    closeQuickTaskMenu();
+  }
 });
 
 refs.prevWeek.addEventListener('click', () => {
