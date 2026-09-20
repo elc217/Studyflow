@@ -1334,7 +1334,7 @@ function parseMarkdownPlan(markdown) {
           priority: parts[5] || 'Media',
           status: completed ? 'completado' : 'planificado',
           completed,
-          isClass: /^Clase presencial\/online/i.test(parts[0]),
+          isClass: /^Clase(?:\s+\d+)?\s*:/i.test(parts[0]) || /^Clase presencial\/online/i.test(parts[0]),
         };
       }
     } else {
@@ -1350,7 +1350,7 @@ function parseMarkdownPlan(markdown) {
           priority: parts[5] || 'Media',
           status: completed ? 'completado' : 'planificado',
           completed,
-          isClass: /^Clase presencial\/online/i.test(parts[0]),
+          isClass: /^Clase(?:\s+\d+)?\s*:/i.test(parts[0]) || /^Clase presencial\/online/i.test(parts[0]),
         };
       }
     }
@@ -1581,8 +1581,8 @@ function classifyTopicDifficulty(title, sourceText = '') {
 
 function estimateTopicMinutes(topic, age) {
   const difficultyFactor = { baja: 0.8, media: 1, alta: 1.35 }[topic.difficulty] || 1;
-  const ageFactor = age <= 25 ? 0.92 : 1 + Math.min(0.55, (age - 25) * 0.009);
-  const pageFactor = topic.pages ? Math.max(45, Math.min(240, topic.pages * 18)) : 65;
+  const ageFactor = age <= 25 ? 1 : 1 + Math.min(0.55, (age - 25) * 0.009);
+  const pageFactor = topic.pages ? Math.max(45, Math.min(480, topic.pages * 40)) : 120;
   return Math.round(Math.max(35, Math.min(300, pageFactor * difficultyFactor * ageFactor)) / 5) * 5;
 }
 
@@ -1917,9 +1917,8 @@ function orderTopicsByClasses(topics, syllabusOptions) {
   const bySyllabus = syllabusOptions.map((syllabus) => topics.filter((topic) => topic.syllabus === syllabus.name));
   const ordered = [];
   while (bySyllabus.some((items) => items.length)) {
-    bySyllabus.forEach((items, index) => {
-      const weight = syllabusOptions[index].classesPerWeek;
-      for (let count = 0; count < weight && items.length; count += 1) ordered.push(items.shift());
+    bySyllabus.forEach((items) => {
+      if (items.length) ordered.push(items.shift());
     });
   }
   return ordered;
@@ -2113,9 +2112,10 @@ function createGeneratorSchedule(topics, options) {
     dayUsage.set(date, (dayUsage.get(date) || 0) + Number(duration || 0));
   };
 
-  const assignToStudyDay = (duration, title, subject, difficulty, priority, callback) => {
+  const assignToStudyDay = (duration, title, subject, difficulty, priority, callback, startIndex = 0) => {
     let remaining = duration;
-    let dateIndex = 0;
+    let dateIndex = startIndex;
+    let lastAssignedDate = '';
     while (remaining > 0) {
       const date = studyDates[dateIndex];
       if (!date) throw new Error('La carga estimada no cabe antes de las tres semanas de repaso. Aumenta horas/días o reduce temas.');
@@ -2139,11 +2139,13 @@ function createGeneratorSchedule(topics, options) {
       const safeDate = date;
       if (callback && !firstStudyDates.has(`${subject}|${title}`)) callback(safeDate);
       pushTask(title, subject, safeChunk, safeDate, priority, difficulty);
+      lastAssignedDate = safeDate;
       remaining -= safeChunk;
       if (remaining > 0) {
         dateIndex += 1;
       }
     }
+    return lastAssignedDate;
   };
 
   const assignReviewOnDay = (date, duration, title, subject, difficulty, priority) => {
@@ -2169,9 +2171,34 @@ function createGeneratorSchedule(topics, options) {
   };
 
   const preparedTopics = topics.map((topic, index) => enrichTopicForPlanning(topic, options, index));
+  const simulationStart = addDays(reviewStart, 3);
+  const simulationEnd = addDays(options.examDate, -3);
+  let lastSimulationDate = '';
+  reviewDates.filter((date) => date >= simulationStart && date <= simulationEnd).forEach((date) => {
+    if (lastSimulationDate && dateDifferenceInDays(lastSimulationDate, date) < 7) return;
+    const preferredWindow = getStudyWindowsForDate(date, options).find((window) => window.startMinutes <= 9 * 60 && window.endMinutes >= 11 * 60)
+      || getStudyWindowsForDate(date, options).find((window) => window.endMinutes - window.startMinutes >= 120);
+    if (!preferredWindow) return;
+    const startMinutes = preferredWindow.startMinutes <= 9 * 60 && preferredWindow.endMinutes >= 11 * 60 ? 9 * 60 : preferredWindow.startMinutes;
+    tasks.push({
+      title: 'Simulacro de examen a tiempo real',
+      subject: 'Simulacros',
+      duration: 120,
+      date,
+      startTime: minutesToTime(startMinutes),
+      priority: 'Alta',
+      difficulty: 'alta',
+      status: 'planificado',
+      completed: false,
+    });
+    reviewUsage.set(date, getDateCapacity(date, options));
+    lastSimulationDate = date;
+  });
+
+  const consolidationPairs = new Map();
   preparedTopics.forEach((topic) => {
     const key = `${topic.syllabus}|${topic.title}`;
-    assignToStudyDay(topic.minutes, topic.title, topic.syllabus, topic.difficulty, topic.difficulty === 'alta' ? 'Alta' : 'Media', (date) => {
+    const lastStudyDate = assignToStudyDay(topic.minutes, topic.title, topic.syllabus, topic.difficulty, topic.difficulty === 'alta' ? 'Alta' : 'Media', (date) => {
       firstStudyDates.set(key, date);
     });
 
@@ -2188,6 +2215,29 @@ function createGeneratorSchedule(topics, options) {
         assignReviewOnDay(reviewDate, errorReviewMinutes, `Corrección de errores: ${topic.title}`, topic.syllabus, 'media', 'Alta');
       }
     }
+
+    const pair = consolidationPairs.get(topic.syllabus) || [];
+    pair.push({ topic, lastStudyDate });
+    if (pair.length === 2) {
+      const lastTopicDate = pair.map((item) => item.lastStudyDate).sort().at(-1);
+      const reviewStartIndex = studyDates.findIndex((date) => date > lastTopicDate);
+      if (reviewStartIndex >= 0) {
+        const pairTitles = pair.map((item) => item.topic.title).join(' y ');
+        let nextReviewIndex = reviewStartIndex;
+        [
+          { title: `Repaso de consolidación: lectura activa de ${pairTitles}`, duration: 50 },
+          { title: `Test de consolidación: ${pairTitles}`, duration: 35 },
+          { title: `${getPracticeLabel(options.courseType)}${pairTitles}`, duration: 45 },
+        ].forEach((review) => {
+          const reviewDate = assignToStudyDay(review.duration, review.title, topic.syllabus, 'media', 'Alta', null, nextReviewIndex);
+          const index = studyDates.indexOf(reviewDate);
+          if (index >= 0) nextReviewIndex = index;
+        });
+      }
+      consolidationPairs.set(topic.syllabus, []);
+    } else {
+      consolidationPairs.set(topic.syllabus, pair);
+    }
   });
 
   const reviewActions = [
@@ -2197,6 +2247,18 @@ function createGeneratorSchedule(topics, options) {
     { days: 14, label: 'Test: comprueba si lo recuperas', minutes: 35 },
     { days: 21, label: 'Repaso final: síntesis y simulacro', minutes: 40 },
   ];
+
+  const targetedReviewDates = reviewDates.filter((date) => date >= addDays(options.examDate, -18) && date <= addDays(options.examDate, -3));
+  const highEffortTopics = [...preparedTopics].sort((first, second) => second.minutes - first.minutes).slice(0, 8);
+  highEffortTopics.forEach((topic) => {
+    const reviewDate = targetedReviewDates.find((date) => (reviewUsage.get(date) || 0) + 60 <= getDateCapacity(date, options));
+    if (reviewDate) assignReviewOnDay(reviewDate, 60, `Repaso prioritario: ${topic.title}`, topic.syllabus, topic.difficulty, 'Alta');
+  });
+
+  state.notes.filter((note) => note.needsReview).slice(0, 8).forEach((note) => {
+    const reviewDate = targetedReviewDates.find((date) => (reviewUsage.get(date) || 0) + 45 <= getDateCapacity(date, options));
+    if (reviewDate) assignReviewOnDay(reviewDate, 45, `Cuaderno de errores: ${note.subject} · ${note.topic}`, note.subject, note.difficulty || 'media', 'Alta');
+  });
 
   preparedTopics.forEach((topic) => {
     const firstDate = firstStudyDates.get(`${topic.syllabus}|${topic.title}`);
