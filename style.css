@@ -771,6 +771,14 @@ button { cursor: pointer; }
 .class-reservation-empty { margin: 0; color: var(--muted); font-size: 0.72rem; }
 .session-block.class-session { background: #f4c542; color: #17252b; border-color: rgba(23,37,43,0.18); }
 .session-block.class-session small { opacity: 1; }
+.dot-class { background: #f4c542; }
+.timer-task { min-height: 34px; margin: 10px 0 0; color: var(--muted); font-size: 0.73rem; font-weight: 700; line-height: 1.35; }
+.timer-task.active { color: var(--secondary); }
+.day-detail-actions { display: flex; gap: 6px; margin-top: 9px; }
+.day-detail-action { flex: 1; border: 1px solid var(--line); border-radius: 7px; padding: 6px 7px; background: #fff; color: var(--secondary); font-size: 0.68rem; font-weight: 800; }
+.day-detail-action.complete { color: var(--success); }
+.day-detail-item.class-item { border-color: rgba(217,148,50,0.5); background: rgba(244,197,66,0.12); }
+.day-progress { display: block; margin-top: 5px; color: var(--secondary); font-size: 0.68rem; font-weight: 700; }
 .generator-status { min-height: 18px; color: var(--secondary); font-size: 0.74rem; font-weight: 700; }
 .generator-pdf-tools { display: flex; gap: 8px; flex-wrap: wrap; margin: 4px 0 8px; }
 .generator-pdf-review { margin-top: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: rgba(255,255,255,0.58); }

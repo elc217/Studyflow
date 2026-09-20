@@ -14,6 +14,11 @@ create table if not exists public.tasks (
   completed boolean not null default false,
   difficulty text not null default 'media',
   needs_review boolean not null default false,
+  is_class boolean not null default false,
+  type text not null default 'study',
+  actual_minutes integer not null default 0 check (actual_minutes >= 0),
+  focus_sessions jsonb not null default '[]'::jsonb,
+  completion_note text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );

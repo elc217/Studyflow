@@ -1,5 +1,11 @@
 -- Ejecutar una vez en Supabase SQL Editor después de supabase-schema.sql
 
+alter table public.tasks add column if not exists is_class boolean not null default false;
+alter table public.tasks add column if not exists type text not null default 'study';
+alter table public.tasks add column if not exists actual_minutes integer not null default 0 check (actual_minutes >= 0);
+alter table public.tasks add column if not exists focus_sessions jsonb not null default '[]'::jsonb;
+alter table public.tasks add column if not exists completion_note text;
+
 create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   display_name text,

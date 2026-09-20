@@ -99,6 +99,8 @@ const state = {
   timerSeconds: 25 * 60,
   isRunning: false,
   timerInterval: null,
+  activeTaskId: null,
+  focusSessionStartSeconds: 25 * 60,
   editingTaskId: null,
   editMode: false,
   weekStart: getStartOfWeek(new Date()),
@@ -194,6 +196,7 @@ const refs = {
   printNotesReport: document.querySelector('#printNotesReport'),
   notesList: document.querySelector('#notesList'),
   timerDisplay: document.querySelector('#timerDisplay'),
+  timerTask: document.querySelector('#timerTask'),
   startTimer: document.querySelector('#startTimer'),
   resetTimer: document.querySelector('#resetTimer'),
   applyCustomTimer: document.querySelector('#applyCustomTimer'),
@@ -266,14 +269,14 @@ const remoteTables = {
 
 function toRemoteRow(table, item) {
   if (table === 'tasks') {
-    return { id: item.id, user_id: currentUser.id, title: item.title, subject: item.subject, duration: item.duration, date: item.date, start_time: item.startTime, priority: item.priority, status: item.status, completed: item.completed, difficulty: item.difficulty, needs_review: item.needsReview };
+    return { id: item.id, user_id: currentUser.id, title: item.title, subject: item.subject, duration: item.duration, date: item.date, start_time: item.startTime, priority: item.priority, status: item.status, completed: item.completed, difficulty: item.difficulty, needs_review: item.needsReview, is_class: item.isClass, type: item.type, actual_minutes: item.actualMinutes, focus_sessions: item.focusSessions, completion_note: item.completionNote || null };
   }
   if (table === 'tests') return { id: item.id, user_id: currentUser.id, subject: item.subject, date: item.date, correct: item.correct, incorrect: item.incorrect };
   return { id: item.id, user_id: currentUser.id, subject: item.subject, topic: item.topic, task_id: item.taskId || null, text: item.text, date: item.date, difficulty: item.difficulty, needs_review: item.needsReview };
 }
 
 function fromRemoteRow(table, item) {
-  if (table === 'tasks') return normalizeTask({ ...item, startTime: item.start_time, needsReview: item.needs_review });
+  if (table === 'tasks') return normalizeTask({ ...item, startTime: item.start_time, needsReview: item.needs_review, isClass: item.is_class, actualMinutes: item.actual_minutes, focusSessions: item.focus_sessions, completionNote: item.completion_note });
   if (table === 'tests') return item;
   return normalizeNote({ ...item, taskId: item.task_id, needsReview: item.needs_review });
 }
@@ -505,6 +508,9 @@ function normalizeTask(task) {
     completed: Boolean(task.completed),
     difficulty: task.difficulty || 'media',
     needsReview: Boolean(task.needsReview),
+    actualMinutes: Math.max(0, Number(task.actualMinutes || 0)),
+    focusSessions: Array.isArray(task.focusSessions) ? task.focusSessions : [],
+    completionNote: String(task.completionNote || ''),
     isClass,
     type: isClass ? 'class' : (task.type || 'study'),
   };
@@ -567,7 +573,7 @@ function renderProgressTracking() {
   const weekTasks = state.tasks.filter((task) => weekDates.includes(task.date));
   const plannedMinutes = weekTasks.reduce((sum, task) => sum + Number(task.duration || 0), 0);
   const completedTasks = weekTasks.filter((task) => task.completed || task.status === 'completado');
-  const completedMinutes = completedTasks.reduce((sum, task) => sum + Number(task.duration || 0), 0);
+  const actualMinutes = weekTasks.reduce((sum, task) => sum + Number(task.actualMinutes || 0), 0);
   const completionRate = weekTasks.length ? Math.round((completedTasks.length / weekTasks.length) * 100) : 0;
   const pendingTasks = weekTasks.length - completedTasks.length;
   const pendingReviews = state.notes.filter((note) => note.needsReview).length;
@@ -575,13 +581,13 @@ function renderProgressTracking() {
   const accuracyTotal = state.tests.reduce((sum, test) => sum + Number(test.correct || 0) + Number(test.incorrect || 0), 0);
   const accuracy = accuracyTotal ? Math.round(((accuracyTotal - incorrect) / accuracyTotal) * 100) : null;
 
-  refs.progressSummary.innerHTML = `<div class="progress-metric"><strong>${completionRate}%</strong><span>cumplimiento</span></div><div class="progress-metric"><strong>${completedMinutes}/${plannedMinutes}</strong><span>min completados</span></div><div class="progress-metric"><strong>${pendingTasks}</strong><span>pendientes</span></div>`;
+  refs.progressSummary.innerHTML = `<div class="progress-metric"><strong>${completionRate}%</strong><span>cumplimiento</span></div><div class="progress-metric"><strong>${actualMinutes}/${plannedMinutes}</strong><span>min reales</span></div><div class="progress-metric"><strong>${pendingTasks}</strong><span>pendientes</span></div>`;
 
   const subjectStats = new Map();
   weekTasks.forEach((task) => {
     const current = subjectStats.get(task.subject) || { planned: 0, completed: 0 };
     current.planned += Number(task.duration || 0);
-    if (task.completed || task.status === 'completado') current.completed += Number(task.duration || 0);
+    current.completed += Number(task.actualMinutes || 0);
     subjectStats.set(task.subject, current);
   });
   refs.progressSubjectBreakdown.innerHTML = [...subjectStats.entries()].sort(([, first], [, second]) => second.planned - first.planned).slice(0, 8).map(([subject, stats]) => {
@@ -779,6 +785,7 @@ function renderCalendar() {
   const emptyCalendar = state.tasks.length ? '' : '<div class="calendar-empty">Importa tu planificación o crea una nueva tarea para empezar.</div>';
   refs.calendarGrid.innerHTML = `${emptyCalendar}<div class="calendar-head">${dayHeaders}</div><div class="calendar-row"><div class="time-column">${timeLabels}</div>${columns}</div>`;
   renderDayDetail();
+  renderReviewSuggestions();
 }
 
 function escapeSvgText(value) {
@@ -922,12 +929,52 @@ function renderDayDetail() {
     return;
   }
 
-  refs.dayDetailList.innerHTML = tasks.map((task) => `
-    <li class="day-detail-item">
+  refs.dayDetailList.innerHTML = tasks.map((task) => {
+    const actualMinutes = Number(task.actualMinutes || 0);
+    const isClass = task.isClass || task.type === 'class';
+    return `
+    <li class="day-detail-item ${isClass ? 'class-item' : ''}">
       <strong>${task.title}</strong>
       <small>${task.subject} · ${task.startTime} · ${task.duration} min · ${task.priority}</small>
-    </li>
-  `).join('');
+      ${isClass ? '<span class="day-progress">Clase reservada</span>' : `<span class="day-progress">Real: ${actualMinutes}/${task.duration} min${task.completed ? ' · completada' : ''}</span><div class="day-detail-actions"><button class="day-detail-action" type="button" data-day-action="focus" data-task-id="${task.id}">Enfocar</button><button class="day-detail-action" type="button" data-day-action="progress" data-task-id="${task.id}">Registrar</button><button class="day-detail-action complete" type="button" data-day-action="complete" data-task-id="${task.id}">Completar</button></div>`}
+    </li>`;
+  }).join('');
+}
+
+function saveTaskProgress(taskId, minutes, note = '', completed = false) {
+  const loggedMinutes = Math.max(0, Math.round(Number(minutes) || 0));
+  let completedTask = false;
+  state.tasks = state.tasks.map((task) => {
+    if (task.id !== taskId) return task;
+    const actualMinutes = Number(task.actualMinutes || 0) + loggedMinutes;
+    const isCompleted = completed || task.completed || actualMinutes >= Number(task.duration || 0);
+    completedTask = isCompleted;
+    return normalizeTask({ ...task, actualMinutes, completionNote: note || task.completionNote, completed: isCompleted, status: isCompleted ? 'completado' : 'en-curso', focusSessions: loggedMinutes ? [...(task.focusSessions || []), { minutes: loggedMinutes, date: new Date().toISOString() }] : task.focusSessions });
+  });
+  if (completedTask && state.activeTaskId === taskId) state.activeTaskId = null;
+  saveData(STORAGE_KEYS.tasks, state.tasks);
+  renderStats();
+  renderCalendar();
+  renderReviewSuggestions();
+}
+
+function registerTaskProgress(taskId) {
+  const task = state.tasks.find((item) => item.id === taskId);
+  if (!task) return;
+  const minutes = window.prompt(`Minutos reales dedicados a "${task.title}"`, String(Math.max(0, Number(task.duration || 0) - Number(task.actualMinutes || 0))));
+  if (minutes === null) return;
+  const note = window.prompt('Resultado, bloqueo o siguiente acción (opcional)', task.completionNote || '');
+  if (note === null) return;
+  saveTaskProgress(taskId, minutes, note);
+}
+
+function completeTask(taskId) {
+  const task = state.tasks.find((item) => item.id === taskId);
+  if (!task) return;
+  const remaining = Math.max(0, Number(task.duration || 0) - Number(task.actualMinutes || 0));
+  const note = window.prompt('Resultado o siguiente acción (opcional)', task.completionNote || '');
+  if (note === null) return;
+  saveTaskProgress(taskId, remaining, note, true);
 }
 
 function getReviewTone(score) {
@@ -1116,63 +1163,30 @@ function printNotesReport() {
 }
 
 function renderReviewSuggestions() {
-  const map = new Map();
-
-  state.notes.forEach((note) => {
-    const key = `${note.subject}|${note.topic}`;
-    if (!map.has(key)) {
-      map.set(key, { subject: note.subject, topic: note.topic, count: 0, weight: 0, needsReview: 0 });
-    }
-    const item = map.get(key);
-    item.count += 1;
-    item.weight += note.difficulty === 'alta' ? 3 : note.difficulty === 'media' ? 2 : 1;
-    item.needsReview += note.needsReview ? 1 : 0;
-  });
-
-  state.tests.forEach((test) => {
-    const key = test.subject;
-    if (!map.has(key)) {
-      map.set(key, { subject: test.subject, topic: 'Resultado de test', count: 0, weight: 0, needsReview: 0 });
-    }
-    const item = map.get(key);
-    item.count += Number(test.incorrect || 0);
-    item.weight += Number(test.incorrect || 0) * 2;
-  });
-
-  const suggestions = [...map.values()]
-    .map((item) => {
-      const score = item.count + Math.ceil(item.weight / 2) + item.needsReview;
-      const tone = getReviewTone(score);
-      return {
-        subject: item.subject,
-        topic: item.topic,
-        score,
-        tone,
-        recommendedMinutes: score >= 6 ? 50 : score >= 3 ? 30 : 20,
-        action: score >= 6 ? 'Haz un test y corrige los errores' : score >= 3 ? 'Explica el tema sin apuntes y practica preguntas' : 'Recuerda las ideas principales sin mirar',
-      };
-    })
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 4);
-
   if (!refs.reviewSuggestions) return;
+  const suggestions = state.tasks.filter((task) => task.date === state.selectedDate && !task.isClass && !task.completed)
+    .map((task) => {
+      const relatedNotes = state.notes.filter((note) => note.taskId === task.id || (note.subject === task.subject && note.needsReview)).length;
+      const remaining = Math.max(0, Number(task.duration || 0) - Number(task.actualMinutes || 0));
+      const score = (task.priority === 'Alta' ? 4 : task.priority === 'Media' ? 2 : 1) + relatedNotes * 2 + (task.difficulty === 'alta' ? 2 : 0) + (task.status === 'en-curso' ? 2 : 0);
+      return { task, remaining, score, tone: getReviewTone(score) };
+    }).sort((first, second) => second.score - first.score || timeToMinutes(first.task.startTime) - timeToMinutes(second.task.startTime)).slice(0, 3);
 
   if (!suggestions.length) {
-    refs.reviewSuggestions.innerHTML = '<div class="review-empty">Nada que repasar todavía.</div>';
+    refs.reviewSuggestions.innerHTML = '<div class="review-empty">No hay tareas pendientes para este día.</div>';
     return;
   }
 
-  refs.reviewSuggestions.innerHTML = suggestions.map((item) => `
+  refs.reviewSuggestions.innerHTML = `<p class="eyebrow">Prioridad del día</p>${suggestions.map((item) => `
     <div class="review-item ${item.tone.className}">
       <div class="review-title-row">
-        <strong>${item.subject}</strong>
+        <strong>${escapeHtml(item.task.subject)}</strong>
         <span class="risk-badge ${item.tone.className}">${item.tone.label}</span>
       </div>
-      <div class="review-topic">${item.topic}</div>
-      <div class="review-meta">Recomendación: ${item.recommendedMinutes} min de repaso</div>
-      <div class="review-meta">Qué hacer: ${item.action}</div>
-    </div>
-  `).join('');
+      <div class="review-topic">${escapeHtml(item.task.title)}</div>
+      <div class="review-meta">Quedan ${item.remaining} min · ${item.task.startTime}</div>
+      <button class="day-detail-action" type="button" data-day-action="focus" data-task-id="${item.task.id}">Iniciar enfoque</button>
+    </div>`).join('')}`;
 }
 
 function renderTestHistory() {
@@ -1997,7 +2011,7 @@ function subtractReservedIntervals(windows, reservedIntervals) {
 }
 
 function getStudyWindowsForDate(date, options) {
-  return getAvailabilityWindowsForDate(date, options);
+  return subtractReservedIntervals(getAvailabilityWindowsForDate(date, options), getReservedIntervalsForDate(date, options));
 }
 
 function getDateCapacity(date, options) {
@@ -2345,6 +2359,11 @@ function renderTimer() {
   if (refs.timerDisplay) refs.timerDisplay.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
   if (refs.startTimer) refs.startTimer.textContent = state.isRunning ? 'Pausar' : 'Iniciar';
   if (refs.customTimerMinutes) refs.customTimerMinutes.value = String(state.selectedMinutes);
+  const activeTask = state.tasks.find((task) => task.id === state.activeTaskId);
+  if (refs.timerTask) {
+    refs.timerTask.textContent = activeTask ? `Enfoque activo: ${activeTask.subject} · ${activeTask.title}` : 'Selecciona una tarea del día para registrar el enfoque.';
+    refs.timerTask.classList.toggle('active', Boolean(activeTask));
+  }
 }
 
 function updateTimerTo(minutes) {
@@ -2359,6 +2378,8 @@ function updateTimerTo(minutes) {
 
 function startTimer() {
   if (state.isRunning) {
+    const elapsedSeconds = Math.max(0, state.focusSessionStartSeconds - state.timerSeconds);
+    if (state.activeTaskId && elapsedSeconds) saveTaskProgress(state.activeTaskId, Math.max(1, Math.round(elapsedSeconds / 60)));
     state.isRunning = false;
     clearInterval(state.timerInterval);
     state.timerInterval = null;
@@ -2366,9 +2387,16 @@ function startTimer() {
     return;
   }
 
+  if (!state.activeTaskId) {
+    alert('Selecciona una tarea pendiente del resumen del día antes de iniciar el temporizador.');
+    return;
+  }
+
   state.isRunning = true;
+  state.focusSessionStartSeconds = state.timerSeconds;
   state.timerInterval = setInterval(() => {
     if (state.timerSeconds <= 0) {
+      if (state.activeTaskId) saveTaskProgress(state.activeTaskId, Math.max(1, Math.round(state.focusSessionStartSeconds / 60)));
       clearInterval(state.timerInterval);
       state.timerInterval = null;
       state.isRunning = false;
@@ -2383,9 +2411,25 @@ function startTimer() {
 }
 
 function resetTimer() {
+  if (state.isRunning) startTimer();
   state.isRunning = false;
   if (state.timerInterval) clearInterval(state.timerInterval);
   state.timerSeconds = state.selectedMinutes * 60;
+  renderTimer();
+}
+
+function startFocusForTask(taskId) {
+  const task = state.tasks.find((item) => item.id === taskId);
+  if (!task || task.isClass || task.completed) return;
+  if (state.isRunning && state.activeTaskId !== taskId) startTimer();
+  state.activeTaskId = taskId;
+  state.selectedMinutes = Math.max(5, Math.min(180, Number(task.duration || 25) - Number(task.actualMinutes || 0) || 25));
+  state.timerSeconds = state.selectedMinutes * 60;
+  refs.timerButtons.forEach((button) => button.classList.toggle('active', Number(button.dataset.minutes) === state.selectedMinutes));
+  state.tasks = state.tasks.map((item) => item.id === taskId ? normalizeTask({ ...item, status: 'en-curso' }) : item);
+  saveData(STORAGE_KEYS.tasks, state.tasks);
+  renderStats();
+  renderCalendar();
   renderTimer();
 }
 
@@ -2458,6 +2502,20 @@ refs.calendarGrid.addEventListener('click', (event) => {
   if (!target) return;
   state.selectedDate = target.dataset.date;
   renderCalendar();
+});
+
+refs.dayDetailList.addEventListener('click', (event) => {
+  const button = event.target.closest('[data-day-action]');
+  if (!button) return;
+  const { dayAction, taskId } = button.dataset;
+  if (dayAction === 'focus') startFocusForTask(taskId);
+  if (dayAction === 'progress') registerTaskProgress(taskId);
+  if (dayAction === 'complete') completeTask(taskId);
+});
+
+refs.reviewSuggestions.addEventListener('click', (event) => {
+  const button = event.target.closest('[data-day-action="focus"]');
+  if (button) startFocusForTask(button.dataset.taskId);
 });
 
 refs.calendarGrid.addEventListener('contextmenu', (event) => {

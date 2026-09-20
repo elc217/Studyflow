@@ -31,6 +31,9 @@ Organizador visual de estudio con agenda semanal por horas, temporizador flexibl
 - Diagnóstico de capacidad antes de generar y soporte para hitos o exámenes intermedios.
 - Replanificación de tareas atrasadas sin superar una carga diaria conservadora.
 - Desglose de progreso por asignatura y minutos completados.
+- Registro de minutos reales, sesiones de enfoque y notas de cierre por tarea.
+- Temporizador vinculado a la tarea activa y prioridades calculadas para el día seleccionado.
+- Reservas de clase persistentes en amarillo que bloquean su franja al generar el plan.
 - Conversor de PDF orientado a temarios con índice editable, exportación Markdown y OCR opcional para PDFs escaneados.
 
 ## Ejecutar localmente
@@ -96,6 +99,7 @@ GitHub generara una URL publica para la aplicacion.
 
 1. Crea un proyecto en Supabase.
 2. Abre **SQL Editor**, crea una consulta nueva y ejecuta el contenido de `supabase-schema.sql`.
+  Si ya tenías la base de datos creada, ejecuta también `supabase-admin-migration.sql` para añadir las columnas de trazabilidad.
 3. Comprueba que aparecen las tablas `tasks`, `tests` y `notes`.
 4. La aplicacion usa la clave publica `publishable` en el navegador. No introduzcas nunca una clave `service_role` en el frontend.
 5. Activa la confirmacion por email en **Authentication > Providers > Email** si quieres verificar las cuentas antes del primer acceso.
