@@ -496,6 +496,7 @@ function openTaskForm(date = state.selectedDate) {
 }
 
 function normalizeTask(task) {
+  const isClass = Boolean(task.isClass || task.type === 'class' || /^Clase presencial\/online/i.test(String(task.title || '')));
   return {
     ...task,
     date: task.date || task.dueDate || formatDate(new Date()),
@@ -504,6 +505,8 @@ function normalizeTask(task) {
     completed: Boolean(task.completed),
     difficulty: task.difficulty || 'media',
     needsReview: Boolean(task.needsReview),
+    isClass,
+    type: isClass ? 'class' : (task.type || 'study'),
   };
 }
 
@@ -754,7 +757,7 @@ function renderCalendar() {
                 <button class="session-action danger" type="button" data-action="delete" aria-label="Eliminar tarea">Eliminar</button>
               </span>` : '';
       return `
-          <div class="session-block ${state.editMode ? 'editable' : ''}" data-task-id="${task.id}" data-date="${date}" data-status="${status}" style="top:${top}px; height:${height}px; left:${task.leftPercent}%; width:${task.widthPercent}%;">
+          <div class="session-block ${task.isClass ? 'class-session' : ''} ${state.editMode ? 'editable' : ''}" data-task-id="${task.id}" data-date="${date}" data-status="${status}" style="top:${top}px; height:${height}px; left:${task.leftPercent}%; width:${task.widthPercent}%;">
             <strong>${task.title}</strong>
             <small>${task.subject} · ${task.duration} min</small>
             ${editActions}
@@ -807,8 +810,9 @@ function buildWeeklySvg() {
       const start = Math.max(8 * 60, timeToMinutes(task.startTime || '09:00'));
       const y = top + 64 + ((start - 8 * 60) / 60) * rowHeight + 5;
       const blockHeight = Math.max(48, Math.min(190, (Number(task.duration) || 45) / 60 * rowHeight));
-      const fill = colors[task.status || (task.completed ? 'completado' : 'planificado')] || colors.planificado;
-      return `<rect x="${x + 9}" y="${y}" width="${columnWidth - 18}" height="${blockHeight}" rx="12" fill="${fill}"/><text x="${x + 23}" y="${y + 25}" fill="white" font-family="Arial,sans-serif" font-size="16" font-weight="700">${escapeSvgText(String(task.title).slice(0, 25))}</text><text x="${x + 23}" y="${y + 47}" fill="white" opacity=".9" font-family="Arial,sans-serif" font-size="13">${escapeSvgText(`${task.startTime || '09:00'} · ${task.duration} min`)}</text><text x="${x + 23}" y="${y + 66}" fill="white" opacity=".9" font-family="Arial,sans-serif" font-size="12">${escapeSvgText(String(task.subject).slice(0, 28))}</text>`;
+      const fill = task.isClass ? '#f4c542' : (colors[task.status || (task.completed ? 'completado' : 'planificado')] || colors.planificado);
+      const textColor = task.isClass ? '#17252b' : 'white';
+      return `<rect x="${x + 9}" y="${y}" width="${columnWidth - 18}" height="${blockHeight}" rx="12" fill="${fill}"/><text x="${x + 23}" y="${y + 25}" fill="${textColor}" font-family="Arial,sans-serif" font-size="16" font-weight="700">${escapeSvgText(String(task.title).slice(0, 25))}</text><text x="${x + 23}" y="${y + 47}" fill="${textColor}" opacity=".9" font-family="Arial,sans-serif" font-size="13">${escapeSvgText(`${task.startTime || '09:00'} · ${task.duration} min`)}</text><text x="${x + 23}" y="${y + 66}" fill="${textColor}" opacity=".9" font-family="Arial,sans-serif" font-size="12">${escapeSvgText(String(task.subject).slice(0, 28))}</text>`;
     }).join('');
     return `<rect x="${x}" y="${top + 64}" width="${columnWidth}" height="${rowHeight * 14}" fill="${index % 2 ? '#ffffff' : '#fbfcfa'}" stroke="#d3dedb"/>${lines}${blocks}`;
   }).join('');
@@ -1316,6 +1320,7 @@ function parseMarkdownPlan(markdown) {
           priority: parts[5] || 'Media',
           status: completed ? 'completado' : 'planificado',
           completed,
+          isClass: /^Clase presencial\/online/i.test(parts[0]),
         };
       }
     } else {
@@ -1331,6 +1336,7 @@ function parseMarkdownPlan(markdown) {
           priority: parts[5] || 'Media',
           status: completed ? 'completado' : 'planificado',
           completed,
+          isClass: /^Clase presencial\/online/i.test(parts[0]),
         };
       }
     }
@@ -1770,21 +1776,33 @@ function downloadPdfMarkdownFile() {
 function renderClassReservation(reservation = {}, index = 0) {
   const day = Number.isFinite(Number(reservation.day)) ? Number(reservation.day) : 3;
   const start = /^\d{2}:\d{2}$/.test(reservation.start || '') ? reservation.start : '17:00';
-  const duration = Math.max(15, Math.min(360, Number(reservation.duration) || 120));
+  const end = /^\d{2}:\d{2}$/.test(reservation.end || '') ? reservation.end : minutesToTime(Math.min(23 * 60 + 59, timeToMinutes(start) + (Number(reservation.duration) || 120)));
+  const duration = Math.max(15, Math.min(360, timeToMinutes(end) - timeToMinutes(start)));
   return `
     <div class="class-reservation-row" data-class-reservation-row>
+      <label>Materia / temario<input data-class-reservation-subject type="text" value="${escapeHtml(reservation.subject || '')}" placeholder="Usa el temario de esta fila" /></label>
       <label>Día<select data-class-reservation-day>${Object.entries(weekdayLabels).map(([value, label]) => `<option value="${value}" ${Number(value) === day ? 'selected' : ''}>${label}</option>`).join('')}</select></label>
-      <label>Hora<input data-class-reservation-start type="time" value="${start}" /></label>
-      <label>Duración<input data-class-reservation-duration type="number" min="15" max="360" step="15" value="${duration}" /></label>
+      <label>Inicio<input data-class-reservation-start type="time" value="${start}" /></label>
+      <label>Fin<input data-class-reservation-end type="time" value="${end}" /></label>
+      <output data-class-reservation-duration>${duration} min</output>
       <span>clase ${index + 1}</span>
     </div>`;
 }
 
+function updateClassReservationDuration(reservationRow) {
+  const start = timeToMinutes(reservationRow.querySelector('[data-class-reservation-start]')?.value || '17:00');
+  const end = timeToMinutes(reservationRow.querySelector('[data-class-reservation-end]')?.value || '19:00');
+  const duration = Math.max(15, Math.min(360, end - start));
+  const output = reservationRow.querySelector('[data-class-reservation-duration]');
+  if (output) output.textContent = `${duration} min`;
+}
+
 function getClassReservationsFromRow(row) {
   return [...row.querySelectorAll('[data-class-reservation-row]')].map((reservationRow) => ({
+    subject: reservationRow.querySelector('[data-class-reservation-subject]')?.value.trim() || '',
     day: Number(reservationRow.querySelector('[data-class-reservation-day]')?.value),
     start: reservationRow.querySelector('[data-class-reservation-start]')?.value || '17:00',
-    duration: Math.max(15, Math.min(360, Number(reservationRow.querySelector('[data-class-reservation-duration]')?.value) || 120)),
+    end: reservationRow.querySelector('[data-class-reservation-end]')?.value || '19:00',
   })).filter((reservation) => Number.isFinite(reservation.day));
 }
 
@@ -1800,11 +1818,11 @@ function renderSyllabusDetails(savedDetails = []) {
   const count = Math.max(1, Math.min(20, Number(refs.generatorSyllabi.value) || 1));
   refs.generatorSyllabusDetails.innerHTML = Array.from({ length: count }, (_, index) => `
     <div class="syllabus-row">
-      <input data-syllabus-name="${index}" type="text" value="${escapeHtml(savedDetails[index]?.name || `Temario ${index + 1}`)}" aria-label="Nombre del temario ${index + 1}" />
-      <textarea data-syllabus-topic-list="${index}" rows="3" placeholder="Tema 1\nTema 2\nTema 3" aria-label="Temas de la asignatura ${index + 1}">${escapeHtml((savedDetails[index]?.topicTitles || []).join('\n'))}</textarea>
-      <input data-syllabus-classes="${index}" type="number" min="1" max="20" value="${savedDetails[index]?.classesPerWeek || 1}" aria-label="Clases semanales del temario ${index + 1}" />
-      <span>un tema por línea · sesiones/sem.</span>
-      <div class="class-reservations" data-class-reservations>${Array.from({ length: Math.max(0, Math.min(20, Number(savedDetails[index]?.classesPerWeek) || 1)) }, (_, reservationIndex) => renderClassReservation(savedDetails[index]?.classReservations?.[reservationIndex], reservationIndex)).join('')}</div>
+      <label>Materia / temario<input data-syllabus-name="${index}" type="text" value="${escapeHtml(savedDetails[index]?.name || `Temario ${index + 1}`)}" aria-label="Nombre del temario ${index + 1}" /></label>
+      <label>Temas<textarea data-syllabus-topic-list="${index}" rows="3" placeholder="Tema 1\nTema 2\nTema 3" aria-label="Temas de la asignatura ${index + 1}">${escapeHtml((savedDetails[index]?.topicTitles || []).join('\n'))}</textarea></label>
+      <label>Número de clases<input data-syllabus-classes="${index}" type="number" min="0" max="20" value="${savedDetails[index]?.classesPerWeek || 1}" aria-label="Clases semanales del temario ${index + 1}" /></label>
+      <span>sesiones / semana</span>
+      <div class="class-reservations" data-class-reservations><strong>Horario de clases de este temario</strong>${Array.from({ length: Math.max(0, Math.min(20, Number(savedDetails[index]?.classesPerWeek) || 1)) }, (_, reservationIndex) => renderClassReservation(savedDetails[index]?.classReservations?.[reservationIndex], reservationIndex)).join('') || '<p class="class-reservation-empty">Sin clases recurrentes para reservar.</p>'}</div>
     </div>`).join('');
 }
 
@@ -1931,15 +1949,18 @@ function getClassReservationTasks(options) {
     (syllabus.classReservations || []).forEach((reservation, index) => {
       const day = Number(reservation.day);
       const start = /^\d{2}:\d{2}$/.test(reservation.start || '') ? reservation.start : '17:00';
-      const duration = Math.max(15, Math.min(360, Number(reservation.duration) || 120));
+      const end = /^\d{2}:\d{2}$/.test(reservation.end || '') ? reservation.end : minutesToTime(timeToMinutes(start) + 120);
+      const duration = Math.max(15, Math.min(360, timeToMinutes(end) - timeToMinutes(start)));
       dates.forEach((date) => {
         if (new Date(`${date}T00:00:00`).getDay() !== day) return;
         tasks.push({
-          title: `Clase presencial/online ${index + 1}: ${syllabus.name}`,
-          subject: syllabus.name,
+          title: `Clase presencial/online ${index + 1}: ${reservation.subject || syllabus.name}`,
+          subject: reservation.subject || syllabus.name,
           duration,
           date,
           startTime: start,
+          isClass: true,
+          type: 'class',
           priority: 'Alta',
           difficulty: 'media',
           status: 'planificado',
@@ -2575,8 +2596,12 @@ if (refs.planGeneratorForm) {
   refs.planGeneratorForm.addEventListener('input', saveGeneratorSettings);
   refs.planGeneratorForm.addEventListener('change', saveGeneratorSettings);
   refs.generatorSyllabusDetails.addEventListener('input', (event) => {
-    if (!event.target.matches('[data-syllabus-classes]')) return;
-    syncClassReservationsForRow(event.target.closest('.syllabus-row'));
+    if (event.target.matches('[data-syllabus-classes]')) {
+      syncClassReservationsForRow(event.target.closest('.syllabus-row'));
+    }
+    if (event.target.matches('[data-class-reservation-start], [data-class-reservation-end]')) {
+      updateClassReservationDuration(event.target.closest('[data-class-reservation-row]'));
+    }
     saveGeneratorSettings();
   });
   refs.generatorWeekdays.addEventListener('change', () => { renderGeneratorAvailability(); saveGeneratorSettings(); });
