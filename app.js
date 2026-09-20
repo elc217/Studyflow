@@ -1790,15 +1790,16 @@ function downloadPdfMarkdownFile() {
 function renderClassReservation(reservation = {}, index = 0) {
   const day = Number.isFinite(Number(reservation.day)) ? Number(reservation.day) : 3;
   const start = /^\d{2}:\d{2}$/.test(reservation.start || '') ? reservation.start : '17:00';
-  const end = /^\d{2}:\d{2}$/.test(reservation.end || '') ? reservation.end : minutesToTime(Math.min(23 * 60 + 59, timeToMinutes(start) + (Number(reservation.duration) || 120)));
-  const duration = Math.max(15, Math.min(360, timeToMinutes(end) - timeToMinutes(start)));
+  const savedDuration = Number(reservation.duration);
+  const end = /^\d{2}:\d{2}$/.test(reservation.end || '') ? reservation.end : minutesToTime(Math.min(23 * 60 + 59, timeToMinutes(start) + (savedDuration || 120)));
+  const duration = Math.max(15, Math.min(360, savedDuration || timeToMinutes(end) - timeToMinutes(start)));
   return `
     <div class="class-reservation-row" data-class-reservation-row>
       <label>Materia / temario<input data-class-reservation-subject type="text" value="${escapeHtml(reservation.subject || '')}" placeholder="Usa el temario de esta fila" /></label>
       <label>Día<select data-class-reservation-day>${Object.entries(weekdayLabels).map(([value, label]) => `<option value="${value}" ${Number(value) === day ? 'selected' : ''}>${label}</option>`).join('')}</select></label>
       <label>Inicio<input data-class-reservation-start type="time" value="${start}" /></label>
       <label>Fin<input data-class-reservation-end type="time" value="${end}" /></label>
-      <output data-class-reservation-duration>${duration} min</output>
+      <label>Duración (min)<input data-class-reservation-duration type="number" min="15" max="360" step="5" value="${duration}" /></label>
       <span>clase ${index + 1}</span>
     </div>`;
 }
@@ -1807,8 +1808,15 @@ function updateClassReservationDuration(reservationRow) {
   const start = timeToMinutes(reservationRow.querySelector('[data-class-reservation-start]')?.value || '17:00');
   const end = timeToMinutes(reservationRow.querySelector('[data-class-reservation-end]')?.value || '19:00');
   const duration = Math.max(15, Math.min(360, end - start));
-  const output = reservationRow.querySelector('[data-class-reservation-duration]');
-  if (output) output.textContent = `${duration} min`;
+  const input = reservationRow.querySelector('[data-class-reservation-duration]');
+  if (input) input.value = String(duration);
+}
+
+function updateClassReservationEnd(reservationRow) {
+  const start = timeToMinutes(reservationRow.querySelector('[data-class-reservation-start]')?.value || '17:00');
+  const duration = Math.max(15, Math.min(360, Number(reservationRow.querySelector('[data-class-reservation-duration]')?.value) || 120));
+  const end = reservationRow.querySelector('[data-class-reservation-end]');
+  if (end) end.value = minutesToTime(Math.min(23 * 60 + 59, start + duration));
 }
 
 function getClassReservationsFromRow(row) {
@@ -1817,6 +1825,7 @@ function getClassReservationsFromRow(row) {
     day: Number(reservationRow.querySelector('[data-class-reservation-day]')?.value),
     start: reservationRow.querySelector('[data-class-reservation-start]')?.value || '17:00',
     end: reservationRow.querySelector('[data-class-reservation-end]')?.value || '19:00',
+    duration: Math.max(15, Math.min(360, Number(reservationRow.querySelector('[data-class-reservation-duration]')?.value) || 120)),
   })).filter((reservation) => Number.isFinite(reservation.day));
 }
 
@@ -2657,8 +2666,11 @@ if (refs.planGeneratorForm) {
     if (event.target.matches('[data-syllabus-classes]')) {
       syncClassReservationsForRow(event.target.closest('.syllabus-row'));
     }
-    if (event.target.matches('[data-class-reservation-start], [data-class-reservation-end]')) {
+    if (event.target.matches('[data-class-reservation-end]')) {
       updateClassReservationDuration(event.target.closest('[data-class-reservation-row]'));
+    }
+    if (event.target.matches('[data-class-reservation-start], [data-class-reservation-duration]')) {
+      updateClassReservationEnd(event.target.closest('[data-class-reservation-row]'));
     }
     saveGeneratorSettings();
   });
