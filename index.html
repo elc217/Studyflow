@@ -311,6 +311,11 @@
                   <div class="field-group"><label for="generatorBreakNote">Criterio</label><input id="generatorBreakNote" value="50/10 recomendado" readonly /></div>
                 </div>
                 <div class="field-group"><label>Días disponibles</label><div class="weekday-picker" id="generatorWeekdays"><label><input type="checkbox" value="1" checked />L</label><label><input type="checkbox" value="2" checked />M</label><label><input type="checkbox" value="3" checked />X</label><label><input type="checkbox" value="4" checked />J</label><label><input type="checkbox" value="5" checked />V</label><label><input type="checkbox" value="6" />S</label><label><input type="checkbox" value="0" />D</label></div></div>
+                <div class="field-group">
+                  <label>Franjas disponibles por día</label>
+                  <div id="generatorDayAvailability" class="day-availability"></div>
+                  <small class="field-hint">Añade una o varias franjas de estudio para cada día marcado. El motivo describe el tiempo bloqueado alrededor de esas franjas: descanso nocturno, trabajo, comida, conciliación u otro.</small>
+                </div>
                 <div class="field-group"><label for="generatorFiles">Índices o temarios completos en PDF (opcional)</label><input id="generatorFiles" type="file" accept="application/pdf,.pdf" multiple /><small class="field-hint">Puedes subir índices o PDFs extensos; se analizan páginas, títulos detectados y tamaño aproximado de cada tema.</small></div>
                 <div class="generator-pdf-tools">
                   <button id="analyzeGeneratorPdfs" class="secondary-btn small" type="button">Analizar PDF y revisar índice</button>
@@ -350,6 +355,8 @@
                 <button id="choosePlanFile" class="secondary-btn small" type="button">Mi planificación (.md, .docx, .pdf)</button>
                 <button id="loadExamplePlan" class="ghost-btn small" type="button">Cargar ejemplo</button>
                 <button id="exportBackupButton" class="ghost-btn small" type="button">Exportar copia</button>
+                <button id="printFullPlanButton" class="ghost-btn small" type="button">PDF / imprimir plan completo</button>
+                <button id="downloadCalendarIcsButton" class="ghost-btn small" type="button">Google Calendar (.ics)</button>
                 <input id="backupFileInput" type="file" accept=".json" hidden />
                 <button id="restoreBackupButton" class="ghost-btn small" type="button">Restaurar copia</button>
                 <button id="replacePlanButton" class="ghost-btn small danger-btn" type="button">Eliminar plan actual</button>
@@ -429,8 +436,8 @@
             <h2>Manual de StudyFlow</h2>
           </div>
           <div class="modal-header-actions">
-            <a class="secondary-btn small" href="./manual-usuario-studyflow.pdf?v=20260915" target="_blank" rel="noopener">Abrir manual PDF</a>
-            <a class="ghost-btn small" href="./manual-usuario-studyflow.pdf?v=20260915" download>Descargar PDF</a>
+            <a class="secondary-btn small" href="./manual-usuario-studyflow.html" target="_blank" rel="noopener">Abrir manual completo</a>
+            <a class="ghost-btn small" href="./manual-usuario-studyflow.pdf?v=20260920" download>Descargar PDF</a>
             <button class="ghost-btn small" data-close-modal="manualPanel" type="button">Cerrar</button>
           </div>
         </div>

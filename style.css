@@ -744,12 +744,28 @@ button { cursor: pointer; }
 }
 
 .weekday-picker input { accent-color: var(--primary); }
+.day-availability { display: flex; flex-direction: column; gap: 10px; }
+.availability-day { padding: 10px; border: 1px solid var(--line); border-radius: 12px; background: rgba(255,255,255,0.58); }
+.availability-day-header { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; }
+.availability-day-header strong { font-size: 0.82rem; color: var(--text); }
+.availability-windows { display: flex; flex-direction: column; gap: 8px; }
+.availability-row { display: grid; grid-template-columns: 82px 82px minmax(0, 1fr) auto; gap: 6px; align-items: end; }
+.availability-row label { display: flex; flex-direction: column; gap: 4px; color: var(--muted); font-size: 0.68rem; font-weight: 700; }
+.availability-row input,
+.availability-row select { min-width: 0; padding: 8px 9px; border: 1px solid var(--line); border-radius: 9px; background: rgba(255,255,255,0.86); color: var(--text); font: inherit; }
+.availability-empty { margin: 0; color: var(--muted); font-size: 0.75rem; }
 .field-hint { color: var(--muted); font-size: 0.7rem; line-height: 1.35; }
 .syllabus-details { display: flex; flex-direction: column; gap: 8px; }
 .syllabus-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(190px, 1.8fr) 88px auto; gap: 6px; align-items: center; }
 .syllabus-row input,
 .syllabus-row textarea { min-width: 0; padding: 9px 10px; border: 1px solid var(--line); border-radius: 9px; background: rgba(255,255,255,0.86); color: var(--text); font: inherit; resize: vertical; }
 .syllabus-row span { color: var(--muted); font-size: 0.68rem; white-space: nowrap; }
+.class-reservations { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 6px; padding: 8px; border: 1px dashed var(--line); border-radius: 10px; background: rgba(61,124,120,0.045); }
+.class-reservation-row { display: grid; grid-template-columns: minmax(100px, 1fr) 92px 96px auto; gap: 6px; align-items: end; }
+.class-reservation-row label { display: flex; flex-direction: column; gap: 4px; color: var(--muted); font-size: 0.68rem; font-weight: 700; }
+.class-reservation-row select,
+.class-reservation-row input { min-width: 0; padding: 8px 9px; border: 1px solid var(--line); border-radius: 9px; background: rgba(255,255,255,0.86); color: var(--text); font: inherit; }
+.class-reservation-empty { margin: 0; color: var(--muted); font-size: 0.72rem; }
 .generator-status { min-height: 18px; color: var(--secondary); font-size: 0.74rem; font-weight: 700; }
 .generator-pdf-tools { display: flex; gap: 8px; flex-wrap: wrap; margin: 4px 0 8px; }
 .generator-pdf-review { margin-top: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: rgba(255,255,255,0.58); }
@@ -930,4 +946,10 @@ button { cursor: pointer; }
 
   .syllabus-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr) 80px; }
   .syllabus-row span { grid-column: 1 / -1; }
+  .class-reservation-row { grid-template-columns: 1fr 1fr; }
+  .class-reservation-row label:first-child,
+  .class-reservation-row span { grid-column: 1 / -1; }
+  .availability-row { grid-template-columns: 1fr 1fr; }
+  .availability-row label:nth-child(3),
+  .availability-row button { grid-column: 1 / -1; }
 }

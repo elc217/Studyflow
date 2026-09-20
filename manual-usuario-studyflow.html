@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Manual de usuario completo | StudyFlow</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #e9eef3;
+      --paper: #f8f8f5;
+      --panel: #ffffff;
+      --ink: #17252b;
+      --muted: #68777d;
+      --line: rgba(23,37,43,0.14);
+      --primary: #ee6958;
+      --primary-dark: #b8453a;
+      --secondary: #3d7c78;
+      --success: #2b9d78;
+      --warning: #d99432;
+      --danger: #d84d58;
+      --deep: #17343a;
+      --shadow: 0 20px 50px rgba(36,55,63,0.12);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "DM Sans", sans-serif;
+      background:
+        radial-gradient(circle at 8% 3%, rgba(238,105,88,0.18), transparent 25rem),
+        radial-gradient(circle at 95% 4%, rgba(61,124,120,0.16), transparent 28rem),
+        linear-gradient(135deg, #e6edf0 0%, #f7f5ef 100%);
+      color: var(--ink);
+      line-height: 1.55;
+    }
+    a { color: var(--primary-dark); font-weight: 700; }
+    .manual-shell { width: min(100% - 28px, 1180px); margin: 0 auto; padding: 22px 0 60px; }
+    .cover {
+      min-height: 92vh;
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(330px, 0.9fr);
+      gap: 34px;
+      align-items: center;
+      padding: 40px 0 24px;
+    }
+    .brand-line { display: flex; align-items: center; gap: 14px; margin-bottom: 28px; }
+    .brand-mark { width: 54px; height: 54px; display: grid; place-items: center; border-radius: 16px; background: var(--ink); color: #fff; font-size: 1.7rem; font-weight: 800; }
+    .eyebrow { margin: 0 0 5px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.72rem; font-weight: 800; }
+    h1, h2, h3, h4 { font-family: "Space Grotesk", sans-serif; line-height: 1.08; }
+    h1 { margin: 0; font-size: clamp(3rem, 7vw, 6.6rem); letter-spacing: 0; }
+    .cover-copy { max-width: 720px; margin: 20px 0 0; color: var(--muted); font-size: 1.16rem; }
+    .cover-meta { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 28px; }
+    .pill { display: inline-flex; align-items: center; gap: 8px; padding: 9px 12px; border: 1px solid var(--line); border-radius: 999px; background: rgba(255,255,255,0.72); color: var(--muted); font-size: 0.82rem; font-weight: 800; }
+    .cover-card { padding: 22px; border: 1px solid var(--line); border-radius: 22px; background: rgba(255,255,255,0.84); box-shadow: var(--shadow); }
+    .cover-card img { width: 100%; height: auto; display: block; border-radius: 16px; border: 1px solid var(--line); background: var(--paper); }
+    .toc { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 18px; }
+    .toc a { display: flex; align-items: center; gap: 10px; min-height: 46px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: rgba(255,255,255,0.72); text-decoration: none; color: var(--ink); }
+    .toc svg, .icon { flex: 0 0 auto; width: 20px; height: 20px; stroke: currentColor; stroke-width: 2.2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    .section { margin: 28px 0; padding: 28px; border: 1px solid var(--line); border-radius: 24px; background: rgba(255,255,255,0.86); box-shadow: var(--shadow); break-inside: avoid; }
+    .section-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; margin-bottom: 22px; }
+    .section h2 { margin: 0; font-size: clamp(1.7rem, 3vw, 2.5rem); }
+    .section-lead { margin: 10px 0 0; max-width: 820px; color: var(--muted); }
+    .visual { margin: 18px 0 24px; padding: 12px; border: 1px solid var(--line); border-radius: 18px; background: var(--paper); }
+    .visual img { width: 100%; height: auto; display: block; border-radius: 12px; }
+    .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+    .card { padding: 16px; border: 1px solid var(--line); border-radius: 16px; background: rgba(248,248,245,0.8); }
+    .card h3, .card h4 { margin: 0 0 8px; }
+    .card p { margin: 0; color: var(--muted); }
+    .callout { display: flex; gap: 12px; padding: 14px 16px; margin: 14px 0; border-left: 4px solid var(--secondary); border-radius: 14px; background: rgba(61,124,120,0.08); color: var(--muted); }
+    .callout strong { color: var(--ink); }
+    .warning { border-left-color: var(--warning); background: rgba(217,148,50,0.12); }
+    .danger { border-left-color: var(--danger); background: rgba(216,77,88,0.1); }
+    .button-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; margin: 10px 0 22px; overflow: hidden; border-radius: 14px; }
+    .button-table th, .button-table td { padding: 11px 12px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+    .button-table th { color: var(--muted); background: rgba(23,37,43,0.045); text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.68rem; }
+    .button-table tr:last-child td { border-bottom: 0; }
+    .ui-chip { display: inline-flex; align-items: center; gap: 7px; padding: 5px 9px; border-radius: 9px; border: 1px solid var(--line); background: #fff; color: var(--ink); font-weight: 800; white-space: nowrap; }
+    .primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+    .secondary { background: rgba(61,124,120,0.14); color: #2c6864; border-color: rgba(61,124,120,0.22); }
+    .ghost { background: #fff; color: var(--ink); }
+    .danger-chip { color: var(--danger); }
+    .kbd { padding: 2px 6px; border-radius: 6px; border: 1px solid var(--line); background: #fff; font-weight: 800; font-size: 0.78rem; }
+    .field-list { display: grid; gap: 8px; margin: 10px 0 20px; }
+    .field-item { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: rgba(255,255,255,0.68); }
+    .field-item strong { color: var(--ink); }
+    .field-item span { color: var(--muted); }
+    .steps { counter-reset: step; display: grid; gap: 10px; }
+    .step { counter-increment: step; display: grid; grid-template-columns: 42px minmax(0, 1fr); gap: 12px; align-items: start; padding: 12px; border: 1px solid var(--line); border-radius: 14px; background: rgba(255,255,255,0.72); }
+    .step::before { content: counter(step); width: 32px; height: 32px; display: grid; place-items: center; border-radius: 10px; background: var(--deep); color: #fff; font-weight: 800; }
+    .step p { margin: 0; color: var(--muted); }
+    .step strong { color: var(--ink); }
+    .legend { display: flex; gap: 10px; flex-wrap: wrap; margin: 10px 0; }
+    .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+    .dot-plan { background: var(--primary); }
+    .dot-live { background: var(--warning); }
+    .dot-done { background: var(--success); }
+    .print-actions { position: sticky; top: 12px; z-index: 3; display: flex; justify-content: flex-end; gap: 8px; margin: 0 0 10px; }
+    .print-actions button, .print-actions a { border: 1px solid var(--line); border-radius: 11px; background: #fff; color: var(--ink); padding: 10px 12px; font: inherit; font-weight: 800; text-decoration: none; cursor: pointer; }
+    .footer { color: var(--muted); text-align: center; padding: 20px 0 0; }
+    @media (max-width: 880px) {
+      .cover { grid-template-columns: 1fr; min-height: auto; }
+      .toc, .grid-2, .grid-3 { grid-template-columns: 1fr; }
+      .section { padding: 20px; }
+      .section-header { flex-direction: column; }
+      .field-item { grid-template-columns: 1fr; }
+      .button-table { display: block; overflow-x: auto; }
+    }
+    @media print {
+      body { background: #fff; }
+      .manual-shell { width: 100%; padding: 0; }
+      .print-actions { display: none; }
+      .cover { min-height: 100vh; page-break-after: always; }
+      .section { box-shadow: none; background: #fff; page-break-inside: avoid; }
+      a { color: var(--ink); text-decoration: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="manual-shell">
+    <div class="print-actions">
+      <a href="index.html">Abrir StudyFlow</a>
+      <button onclick="window.print()">Guardar como PDF / imprimir</button>
+    </div>
+
+    <header class="cover">
+      <div>
+        <div class="brand-line">
+          <div class="brand-mark">S</div>
+          <div><p class="eyebrow">Manual profesional</p><strong>StudyFlow</strong></div>
+        </div>
+        <h1>Manual de usuario completo</h1>
+        <p class="cover-copy">Guía detallada función a función y botón a botón para configurar, generar, estudiar, revisar, exportar y administrar planificaciones en StudyFlow.</p>
+        <div class="cover-meta">
+          <span class="pill">Versión 2026</span>
+          <span class="pill">Creada por Luis Enrique Algueró Martín</span>
+          <span class="pill">Planificación inteligente + calendario</span>
+        </div>
+        <nav class="toc" aria-label="Índice del manual">
+          <a href="#inicio"><svg class="icon" viewBox="0 0 24 24"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>Primer acceso</a>
+          <a href="#navegacion"><svg class="icon" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>Navegación</a>
+          <a href="#calendario"><svg class="icon" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M8 2v4M16 2v4M3 10h18"/></svg>Calendario</a>
+          <a href="#inteligente"><svg class="icon" viewBox="0 0 24 24"><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"/></svg>Planificador inteligente</a>
+          <a href="#importar"><svg class="icon" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 21h16"/></svg>Importar y exportar</a>
+          <a href="#errores"><svg class="icon" viewBox="0 0 24 24"><path d="M4 4h16v16H4z"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>Cuaderno de errores</a>
+          <a href="#timer"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v5l3 2M9 2h6"/></svg>Temporizador</a>
+          <a href="#admin"><svg class="icon" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-8 0v2"/><circle cx="12" cy="7" r="4"/><path d="M20 8v6M17 11h6"/></svg>Administración</a>
+        </nav>
+      </div>
+      <aside class="cover-card">
+        <img src="manual-flow.svg" alt="Flujo visual de StudyFlow: configurar, generar, estudiar y revisar" />
+      </aside>
+    </header>
+
+    <section id="inicio" class="section">
+      <div class="section-header"><div><p class="eyebrow">01 · Primer acceso</p><h2>Cuenta, sesión y datos</h2><p class="section-lead">StudyFlow puede usarse desde el navegador con cuenta de usuario. Las tareas, notas, tests y configuración del planificador se guardan por usuario para que cada persona conserve su planificación.</p></div></div>
+      <div class="grid-2">
+        <div class="card"><h3>Identidad visual</h3><p>La marca usa el símbolo <strong>S</strong>, fondo claro, texto profundo, acento coral para acciones principales y verde azulado para herramientas secundarias.</p></div>
+        <div class="card"><h3>Datos privados</h3><p>Cada usuario guarda su propio calendario, tests, notas y preferencias del planificador inteligente. Si cierras sesión y entra otra persona, se cargan sus datos.</p></div>
+      </div>
+      <h3>Botones y campos de acceso</h3>
+      <table class="button-table">
+        <thead><tr><th>Elemento</th><th>Icono</th><th>Uso</th><th>Consejo</th></tr></thead>
+        <tbody>
+          <tr><td><span class="ui-chip ghost">Email</span></td><td>Identificación</td><td>Introduce el correo de la cuenta.</td><td>Usa siempre el mismo correo para ver la misma planificación.</td></tr>
+          <tr><td><span class="ui-chip ghost">Contraseña</span></td><td>Seguridad</td><td>Clave de acceso de al menos 6 caracteres.</td><td>No compartas la contraseña ni la guardes en capturas.</td></tr>
+          <tr><td><span class="ui-chip primary">Iniciar sesión</span></td><td>Entrada</td><td>Abre la aplicación con una cuenta existente.</td><td>Si los datos no aparecen, comprueba que estás con el usuario correcto.</td></tr>
+          <tr><td><span class="ui-chip ghost">Crear cuenta</span></td><td>Alta</td><td>Cambia el formulario al modo de registro.</td><td>Puede requerir confirmar el correo si Supabase lo tiene activado.</td></tr>
+          <tr><td><span class="ui-chip ghost">Cerrar sesión</span></td><td>Salida</td><td>Cierra el usuario activo y protege la planificación.</td><td>Usa este botón en dispositivos compartidos.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="navegacion" class="section">
+      <div class="section-header"><div><p class="eyebrow">02 · Navegación</p><h2>Barra lateral, filtros y panel superior</h2><p class="section-lead">La barra lateral controla qué tareas se ven; la parte superior permite cambiar de semana, crear tareas y consultar el usuario conectado.</p></div></div>
+      <table class="button-table">
+        <thead><tr><th>Botón</th><th>Qué muestra o hace</th><th>Cuándo usarlo</th></tr></thead>
+        <tbody>
+          <tr><td><span class="ui-chip secondary">Todas</span></td><td>Muestra todas las tareas del plan visible.</td><td>Para revisar el conjunto de trabajo sin filtros.</td></tr>
+          <tr><td><span class="ui-chip ghost">Hoy</span></td><td>Selecciona los bloques fechados en el día actual.</td><td>Al empezar la jornada de estudio.</td></tr>
+          <tr><td><span class="ui-chip ghost">Próximas</span></td><td>Muestra tareas futuras pendientes.</td><td>Para anticipar carga y reorganizar.</td></tr>
+          <tr><td><span class="ui-chip ghost">Completadas</span></td><td>Filtra los bloques marcados como completados.</td><td>Para comprobar progreso real.</td></tr>
+          <tr><td><span class="ui-chip ghost">Manual de uso</span></td><td>Abre la ayuda integrada en la app.</td><td>Consulta rápida sin salir del calendario.</td></tr>
+          <tr><td><span class="ui-chip ghost">Semana anterior</span></td><td>Retrocede una semana en el calendario.</td><td>Para revisar historial o tareas anteriores.</td></tr>
+          <tr><td><span class="ui-chip ghost">Semana siguiente</span></td><td>Avanza una semana.</td><td>Para ver bloques futuros.</td></tr>
+          <tr><td><span class="ui-chip primary">+ Nueva tarea</span></td><td>Abre el formulario de tarea manual.</td><td>Cuando necesites añadir un bloque no generado automáticamente.</td></tr>
+        </tbody>
+      </table>
+      <div class="callout"><svg class="icon" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg><p><strong>Lectura del panel “Siguiente bloque”.</strong> Resume la próxima tarea pendiente, su materia y duración. Es la referencia más rápida para comenzar sin revisar toda la semana.</p></div>
+    </section>
+
+    <section id="calendario" class="section">
+      <div class="section-header"><div><p class="eyebrow">03 · Calendario semanal</p><h2>Agenda por horas</h2><p class="section-lead">El calendario muestra columnas por día y bloques posicionados por hora. Cada bloque incluye tema, materia, duración, estado y controles de edición cuando corresponde.</p></div></div>
+      <div class="visual"><img src="manual-calendar.svg" alt="Ejemplo visual del calendario semanal de StudyFlow" /></div>
+      <div class="legend"><span class="pill"><i class="dot dot-plan"></i> Planificado</span><span class="pill"><i class="dot dot-live"></i> En curso</span><span class="pill"><i class="dot dot-done"></i> Completado</span></div>
+      <h3>Botones del calendario</h3>
+      <table class="button-table">
+        <thead><tr><th>Botón</th><th>Función exacta</th><th>Resultado</th></tr></thead>
+        <tbody>
+          <tr><td><span class="ui-chip secondary">Editar calendario</span></td><td>Activa el modo edición.</td><td>Permite editar o eliminar bloques desde el calendario.</td></tr>
+          <tr><td><span class="ui-chip ghost">PDF / imprimir</span></td><td>Imprime la semana visible.</td><td>Abre una ventana lista para imprimir o guardar como PDF.</td></tr>
+          <tr><td><span class="ui-chip ghost">Descargar JPEG</span></td><td>Exporta la semana como imagen.</td><td>Útil para enviar por mensajería o guardar como imagen.</td></tr>
+          <tr><td><span class="ui-chip ghost">Fondo SVG</span></td><td>Descarga una versión vectorial de la semana.</td><td>Sirve como fondo de escritorio o imagen escalable.</td></tr>
+        </tbody>
+      </table>
+      <h3>Crear o editar una tarea manual</h3>
+      <div class="field-list">
+        <div class="field-item"><strong>Tema</strong><span>Nombre concreto del bloque: “Revisar ecuaciones”, “Tema 4”, “Supuesto práctico”.</span></div>
+        <div class="field-item"><strong>Materia</strong><span>Asignatura o temario al que pertenece.</span></div>
+        <div class="field-item"><strong>Duración</strong><span>Minutos del bloque. Afecta al alto visual y al cómputo de tiempo.</span></div>
+        <div class="field-item"><strong>Fecha y hora</strong><span>Ubicación exacta en el calendario semanal.</span></div>
+        <div class="field-item"><strong>Prioridad</strong><span>Alta, Media o Baja. Ayuda a distinguir qué recuperar antes.</span></div>
+        <div class="field-item"><strong>Estado</strong><span>Planificado, en curso o completado.</span></div>
+        <div class="field-item"><strong>Dificultad</strong><span>Baja, media o alta. Las tareas difíciles pueden activar repaso recomendado.</span></div>
+      </div>
+      <table class="button-table">
+        <thead><tr><th>Acción</th><th>Uso</th></tr></thead>
+        <tbody>
+          <tr><td><span class="ui-chip primary">Guardar tarea</span></td><td>Crea una tarea nueva o actualiza una ya existente.</td></tr>
+          <tr><td><span class="ui-chip ghost">Clic en un día</span></td><td>Selecciona ese día y actualiza el resumen lateral.</td></tr>
+          <tr><td><span class="ui-chip ghost">Doble clic / clic contextual en bloque</span></td><td>Abre acciones rápidas de edición o estado.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="inteligente" class="section">
+      <div class="section-header"><div><p class="eyebrow">04 · Planificador inteligente</p><h2>Generar una planificación completa</h2><p class="section-lead">El planificador convierte tipo de curso, fechas, temarios, clases semanales, disponibilidad real, descansos, PDF e hitos en bloques concretos de calendario.</p></div></div>
+      <div class="visual"><img src="manual-generator.svg" alt="Configurador de planificación de StudyFlow" /></div>
+      <div class="steps">
+        <div class="step"><p><strong>Define el contexto.</strong> Elige tipo de curso, fecha de comienzo, fecha de examen, edad y horas sostenibles al día.</p></div>
+        <div class="step"><p><strong>Describe el contenido.</strong> Añade asignaturas, módulos o temarios, sus temas y clases semanales.</p></div>
+        <div class="step"><p><strong>Reserva clases reales.</strong> Por cada clase semanal indica día, hora y duración. StudyFlow bloqueará esos periodos durante todo el intervalo.</p></div>
+        <div class="step"><p><strong>Marca disponibilidad.</strong> Selecciona días de estudio y franjas horarias disponibles por día.</p></div>
+        <div class="step"><p><strong>Genera y revisa.</strong> Pulsa “Generar plan”, revisa capacidad y descarga o imprime el resultado si lo necesitas.</p></div>
+      </div>
+      <h3>Campos generales</h3>
+      <div class="field-list">
+        <div class="field-item"><strong>Tipo de curso</strong><span>E.S.O., F.P., universidad, máster u oposiciones. Ajusta lenguaje, dificultad y bloques prácticos.</span></div>
+        <div class="field-item"><strong>Comienzo</strong><span>Primer día posible para estudiar.</span></div>
+        <div class="field-item"><strong>Examen</strong><span>Fecha límite. El sistema reserva las tres semanas anteriores para repaso final cuando cabe.</span></div>
+        <div class="field-item"><strong>Edad</strong><span>Factor orientativo para estimar duración. No mide capacidad personal; sólo ajusta la carga con prudencia.</span></div>
+        <div class="field-item"><strong>Horas/día</strong><span>Tiempo máximo diario de estudio. Debe ser realista y sostenible.</span></div>
+        <div class="field-item"><strong>N.º asignaturas / módulos</strong><span>Número de bloques académicos que se configurarán.</span></div>
+        <div class="field-item"><strong>Temas por defecto</strong><span>Cantidad usada si no escribes temas manuales ni se detectan desde PDF.</span></div>
+      </div>
+      <h3>Asignaturas, módulos y reservas de clase</h3>
+      <table class="button-table">
+        <thead><tr><th>Campo</th><th>Detalle</th><th>Ejemplo</th></tr></thead>
+        <tbody>
+          <tr><td>Nombre del temario</td><td>Materia, módulo o parte de oposición.</td><td>Derecho Administrativo</td></tr>
+          <tr><td>Temas</td><td>Un tema por línea. Si queda vacío, se crean temas numerados.</td><td>Tema 1: Fuentes<br>Tema 2: Actos administrativos</td></tr>
+          <tr><td>Clases/semana</td><td>Indica cuántas clases recurrentes tiene esa materia cada semana.</td><td>1</td></tr>
+          <tr><td>Día</td><td>Día semanal de la clase recurrente.</td><td>Miércoles</td></tr>
+          <tr><td>Hora</td><td>Hora de inicio de la clase.</td><td>17:00</td></tr>
+          <tr><td>Duración</td><td>Minutos de reserva de clase.</td><td>120 min, de 17:00 a 19:00</td></tr>
+        </tbody>
+      </table>
+      <div class="callout"><svg class="icon" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M8 2v4M16 2v4M3 10h18"/></svg><p><strong>Reserva recurrente.</strong> Si configuras una clase miércoles de 17:00 a 19:00, StudyFlow crea ese bloque cada miércoles del periodo y evita programar estudio encima.</p></div>
+      <h3>Disponibilidad por día</h3>
+      <div class="field-list">
+        <div class="field-item"><strong>Días disponibles</strong><span>Marca lunes, martes, miércoles, jueves, viernes, sábado o domingo. Los días sin marcar no reciben estudio.</span></div>
+        <div class="field-item"><strong>Franjas disponibles</strong><span>Define desde/hasta para cada día marcado. Puedes añadir varias franjas.</span></div>
+        <div class="field-item"><strong>Motivo fuera de franja</strong><span>Permite documentar por qué ese tiempo no se estudia: descanso nocturno, trabajo, comida, conciliación u otro.</span></div>
+      </div>
+      <h3>Pausas y descanso</h3>
+      <table class="button-table">
+        <thead><tr><th>Campo / botón</th><th>Función</th></tr></thead>
+        <tbody>
+          <tr><td><span class="ui-chip ghost">Pausas: Recomendadas</span></td><td>El sistema calcula una pauta orientativa según horas, edad y dificultad.</td></tr>
+          <tr><td><span class="ui-chip ghost">Pausas: Personalizadas</span></td><td>Respeta el intervalo y duración que introduzcas.</td></tr>
+          <tr><td>Intervalo de trabajo</td><td>Minutos de concentración antes de la pausa.</td></tr>
+          <tr><td>Duración pausa</td><td>Minutos de descanso entre bloques.</td></tr>
+          <tr><td>Criterio</td><td>Explica si el cálculo es automático o manual.</td></tr>
+        </tbody>
+      </table>
+      <h3>PDF, OCR y revisión de índice</h3>
+      <table class="button-table">
+        <thead><tr><th>Botón / campo</th><th>Función</th><th>Resultado esperado</th></tr></thead>
+        <tbody>
+          <tr><td><span class="ui-chip ghost">Índices o temarios completos en PDF</span></td><td>Permite adjuntar PDFs con temarios o índices.</td><td>El sistema lee páginas, títulos detectados y extensión aproximada.</td></tr>
+          <tr><td><span class="ui-chip secondary">Analizar PDF y revisar índice</span></td><td>Procesa el PDF antes de generar.</td><td>Muestra una tabla editable de temas detectados.</td></tr>
+          <tr><td><span class="ui-chip ghost">Intentar OCR del PDF</span></td><td>Aparece si no se detecta texto seleccionable.</td><td>Intenta reconocer texto en PDFs escaneados.</td></tr>
+          <tr><td><span class="ui-chip ghost">Descargar Markdown</span></td><td>Exporta el índice detectado o corregido.</td><td>Genera un archivo `.md` útil como respaldo.</td></tr>
+          <tr><td><span class="ui-chip primary">Generar plan</span></td><td>Crea el calendario completo.</td><td>Importa automáticamente los bloques al calendario.</td></tr>
+          <tr><td><span class="ui-chip ghost">Descargar .md</span></td><td>Guarda el plan generado como Markdown.</td><td>Permite conservar una copia textual.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="importar" class="section">
+      <div class="section-header"><div><p class="eyebrow">05 · Importar, exportar, papel y calendario externo</p><h2>Opciones para trabajar fuera de la aplicación</h2><p class="section-lead">StudyFlow permite imprimir, descargar imágenes, hacer copias de seguridad y exportar el calendario completo para Google Calendar mediante archivo `.ics`.</p></div></div>
+      <table class="button-table">
+        <thead><tr><th>Botón</th><th>Función</th><th>Uso recomendado</th></tr></thead>
+        <tbody>
+          <tr><td><span class="ui-chip secondary">Mi planificación (.md, .docx, .pdf)</span></td><td>Selecciona un archivo de planificación externo.</td><td>Importar un documento preparado fuera de StudyFlow.</td></tr>
+          <tr><td><span class="ui-chip ghost">Cargar ejemplo</span></td><td>Rellena el área de texto con un plan de muestra.</td><td>Aprender el formato de importación.</td></tr>
+          <tr><td><span class="ui-chip ghost">Exportar copia</span></td><td>Descarga tareas, tests y notas en JSON.</td><td>Crear respaldo antes de cambios importantes.</td></tr>
+          <tr><td><span class="ui-chip ghost">PDF / imprimir plan completo</span></td><td>Abre todo el plan en una vista imprimible.</td><td>Guardar como PDF o imprimir en papel.</td></tr>
+          <tr><td><span class="ui-chip ghost">Google Calendar (.ics)</span></td><td>Descarga un calendario estándar importable.</td><td>Subir a Google Calendar, Apple Calendar u Outlook.</td></tr>
+          <tr><td><span class="ui-chip ghost">Restaurar copia</span></td><td>Carga un JSON de respaldo.</td><td>Recuperar tareas, tests y notas.</td></tr>
+          <tr><td><span class="ui-chip danger-chip">Eliminar plan actual</span></td><td>Borra sólo tareas del calendario.</td><td>Empezar una planificación nueva sin borrar notas ni tests.</td></tr>
+          <tr><td><span class="ui-chip primary">Importar planificación</span></td><td>Convierte el texto pegado en tareas.</td><td>Usar listas Markdown o líneas con separadores.</td></tr>
+        </tbody>
+      </table>
+      <div class="callout warning"><svg class="icon" viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg><p><strong>Importar en Google Calendar.</strong> Descarga el `.ics`, abre Google Calendar, entra en Configuración, Importar y exportar, selecciona el archivo y el calendario de destino. Google importará cada bloque como evento.</p></div>
+      <h3>Formatos aceptados</h3>
+      <div class="grid-3">
+        <div class="card"><h4>Markdown / TXT</h4><p>Formato recomendado para planes simples: una línea por tarea.</p></div>
+        <div class="card"><h4>DOCX</h4><p>Se lee el texto del documento y se intenta interpretar la planificación.</p></div>
+        <div class="card"><h4>PDF</h4><p>Se extrae texto cuando el PDF lo permite. Los escaneados pueden requerir OCR en el generador.</p></div>
+      </div>
+    </section>
+
+    <section id="seguimiento" class="section">
+      <div class="section-header"><div><p class="eyebrow">06 · Seguimiento semanal</p><h2>Control de cumplimiento y reajuste</h2><p class="section-lead">El panel de seguimiento compara el trabajo planificado con lo completado, muestra pendientes y sugiere ajustes de carga.</p></div></div>
+      <table class="button-table">
+        <thead><tr><th>Elemento</th><th>Qué significa</th></tr></thead>
+        <tbody>
+          <tr><td>Total planificado</td><td>Número de bloques y minutos previstos para la semana visible.</td></tr>
+          <tr><td>Completado</td><td>Tareas marcadas como terminadas.</td></tr>
+          <tr><td>Pendiente</td><td>Bloques que siguen sin finalizar.</td></tr>
+          <tr><td>Desglose por asignatura</td><td>Distribución del trabajo por materia o temario.</td></tr>
+          <tr><td><span class="ui-chip secondary">Replanificar pendientes</span></td><td>Mueve tareas atrasadas a próximos huecos sin superar una carga diaria conservadora.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="timer" class="section">
+      <div class="section-header"><div><p class="eyebrow">07 · Temporizador</p><h2>Sesiones de concentración</h2><p class="section-lead">El temporizador ayuda a ejecutar bloques concretos sin cambiar de herramienta.</p></div></div>
+      <table class="button-table">
+        <thead><tr><th>Botón / campo</th><th>Función</th></tr></thead>
+        <tbody>
+          <tr><td><span class="ui-chip ghost">25 min</span></td><td>Selecciona una sesión corta tipo pomodoro.</td></tr>
+          <tr><td><span class="ui-chip ghost">50 min</span></td><td>Selecciona una sesión larga estándar.</td></tr>
+          <tr><td><span class="ui-chip ghost">15 min</span></td><td>Selecciona una sesión breve de arranque o repaso.</td></tr>
+          <tr><td>Tiempo personalizado</td><td>Permite introducir cualquier duración entre 5 y 180 minutos.</td></tr>
+          <tr><td><span class="ui-chip secondary">Iniciar</span></td><td>Comienza o pausa la cuenta atrás.</td></tr>
+          <tr><td><span class="ui-chip ghost">Reiniciar</span></td><td>Vuelve al tiempo seleccionado.</td></tr>
+          <tr><td><span class="ui-chip ghost">Aplicar</span></td><td>Aplica el tiempo personalizado introducido.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="errores" class="section">
+      <div class="section-header"><div><p class="eyebrow">08 · Tests y cuaderno de errores</p><h2>Aprender de los fallos</h2><p class="section-lead">El cuaderno registra errores, los vincula a tareas y alimenta las recomendaciones de repaso.</p></div></div>
+      <h3>Campos del cuaderno</h3>
+      <div class="field-list">
+        <div class="field-item"><strong>Materia</strong><span>Asignatura relacionada con el error.</span></div>
+        <div class="field-item"><strong>Fecha</strong><span>Día en que se detectó el error.</span></div>
+        <div class="field-item"><strong>Tema / bloque</strong><span>Contenido concreto que falló.</span></div>
+        <div class="field-item"><strong>Tarea asociada</strong><span>Permite enlazar el error con un bloque del calendario.</span></div>
+        <div class="field-item"><strong>Dificultad</strong><span>Prioriza la intensidad del repaso posterior.</span></div>
+        <div class="field-item"><strong>Repaso posterior</strong><span>Marca si debe aparecer en recomendaciones.</span></div>
+        <div class="field-item"><strong>Qué fallé y cómo lo corrijo</strong><span>Explicación útil para no repetir el error.</span></div>
+      </div>
+      <table class="button-table">
+        <thead><tr><th>Botón / campo</th><th>Función</th></tr></thead>
+        <tbody>
+          <tr><td><span class="ui-chip primary">Guardar en cuaderno</span></td><td>Registra el error o aprendizaje.</td></tr>
+          <tr><td><span class="ui-chip ghost">Buscar por materia, tema o texto</span></td><td>Filtra entradas del cuaderno.</td></tr>
+          <tr><td><span class="ui-chip secondary">Imprimir / PDF</span></td><td>Genera un informe imprimible de errores.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="admin" class="section">
+      <div class="section-header"><div><p class="eyebrow">09 · Administración</p><h2>Panel privado</h2><p class="section-lead">El panel de administración sólo aparece para usuarios con permisos. Sirve para revisar usuarios, estado, plan y actividad.</p></div></div>
+      <table class="button-table">
+        <thead><tr><th>Elemento</th><th>Función</th></tr></thead>
+        <tbody>
+          <tr><td><span class="ui-chip ghost">Administración</span></td><td>Abre el panel privado cuando el perfil tiene permiso.</td></tr>
+          <tr><td>Buscar usuario</td><td>Filtra por email o nombre.</td></tr>
+          <tr><td>Todos los estados</td><td>Filtra activos o suspendidos.</td></tr>
+          <tr><td>Todos los planes</td><td>Filtra Free, prueba o pago.</td></tr>
+          <tr><td><span class="ui-chip secondary">Actualizar usuarios</span></td><td>Recarga los datos de administración.</td></tr>
+          <tr><td><span class="ui-chip ghost">Exportar CSV</span></td><td>Descarga la tabla de usuarios para análisis externo.</td></tr>
+          <tr><td><span class="ui-chip ghost">Cerrar</span></td><td>Cierra el panel modal.</td></tr>
+        </tbody>
+      </table>
+      <div class="callout danger"><svg class="icon" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/></svg><p><strong>Precaución administrativa.</strong> Los cambios de rol, plan o estado afectan al acceso de usuarios. Verifica siempre la cuenta antes de modificarla.</p></div>
+    </section>
+
+    <section id="rutina" class="section">
+      <div class="section-header"><div><p class="eyebrow">10 · Rutina recomendada</p><h2>Uso diario y semanal</h2></div></div>
+      <div class="steps">
+        <div class="step"><p><strong>Inicio del día.</strong> Entra en “Hoy”, revisa “Siguiente bloque” y prepara sólo el material de esa sesión.</p></div>
+        <div class="step"><p><strong>Durante el estudio.</strong> Usa el temporizador y evita editar toda la planificación en mitad de un bloque.</p></div>
+        <div class="step"><p><strong>Fin de bloque.</strong> Marca la tarea como completada y anota errores relevantes.</p></div>
+        <div class="step"><p><strong>Fin de semana.</strong> Revisa seguimiento, pendientes y errores. Replanifica si el cumplimiento fue bajo.</p></div>
+        <div class="step"><p><strong>Antes de cambios grandes.</strong> Usa “Exportar copia” para conservar un respaldo.</p></div>
+      </div>
+    </section>
+
+    <section id="problemas" class="section">
+      <div class="section-header"><div><p class="eyebrow">11 · Solución de problemas</p><h2>Incidencias habituales</h2></div></div>
+      <table class="button-table">
+        <thead><tr><th>Problema</th><th>Causa probable</th><th>Solución</th></tr></thead>
+        <tbody>
+          <tr><td>No aparecen mis datos</td><td>Has iniciado sesión con otro usuario o el navegador no tiene esos datos.</td><td>Comprueba el correo activo y restaura copia si trabajabas sin cuenta.</td></tr>
+          <tr><td>No caben los temas</td><td>Hay más carga que tiempo disponible antes del repaso final.</td><td>Aumenta días, horas, fecha de examen o reduce temas.</td></tr>
+          <tr><td>El PDF no detecta temas</td><td>Puede ser escaneado o no tener títulos claros.</td><td>Usa OCR, corrige el índice o escribe temas manualmente.</td></tr>
+          <tr><td>Google Calendar no se sincroniza automáticamente</td><td>La app genera un archivo `.ics`, no una conexión OAuth en tiempo real.</td><td>Importa el `.ics` en Google Calendar cuando generes o actualices el plan.</td></tr>
+          <tr><td>El botón de imprimir no abre ventana</td><td>El navegador bloquea ventanas emergentes.</td><td>Permite ventanas emergentes para StudyFlow y repite la acción.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <footer class="footer">
+      <p>StudyFlow · Manual completo de usuario · Creada por Luis Enrique Algueró Martín · 2026</p>
+    </footer>
+  </div>
+</body>
+</html>

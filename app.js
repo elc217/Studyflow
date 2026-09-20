@@ -2,6 +2,7 @@ const STORAGE_KEYS = {
   tasks: 'studyflow-tasks',
   tests: 'studyflow-test-history',
   notes: 'studyflow-notes',
+  generatorSettings: 'studyflow-generator-settings',
 };
 
 function getUserStorageKey(key) {
@@ -138,6 +139,8 @@ const refs = {
   importPlanButton: document.querySelector('#importPlanButton'),
   loadExamplePlan: document.querySelector('#loadExamplePlan'),
   exportBackupButton: document.querySelector('#exportBackupButton'),
+  printFullPlanButton: document.querySelector('#printFullPlanButton'),
+  downloadCalendarIcsButton: document.querySelector('#downloadCalendarIcsButton'),
   restoreBackupButton: document.querySelector('#restoreBackupButton'),
   backupFileInput: document.querySelector('#backupFileInput'),
   replacePlanButton: document.querySelector('#replacePlanButton'),
@@ -168,6 +171,7 @@ const refs = {
   generatorBreakDuration: document.querySelector('#generatorBreakDuration'),
   generatorBreakNote: document.querySelector('#generatorBreakNote'),
   generatorWeekdays: document.querySelector('#generatorWeekdays'),
+  generatorDayAvailability: document.querySelector('#generatorDayAvailability'),
   generatorFiles: document.querySelector('#generatorFiles'),
   analyzeGeneratorPdfs: document.querySelector('#analyzeGeneratorPdfs'),
   ocrGeneratorPdfs: document.querySelector('#ocrGeneratorPdfs'),
@@ -237,6 +241,21 @@ function loadData(key, fallback) {
 function saveData(key, value) {
   localStorage.setItem(getUserStorageKey(key), JSON.stringify(value));
   if (currentUser && supabaseClient) syncCollection(key, value);
+}
+
+function loadStoredObject(key, fallback = {}) {
+  try {
+    const raw = localStorage.getItem(getUserStorageKey(key));
+    if (!raw) return fallback;
+    const data = JSON.parse(raw);
+    return data && typeof data === 'object' && !Array.isArray(data) ? data : fallback;
+  } catch (error) {
+    return fallback;
+  }
+}
+
+function saveStoredObject(key, value) {
+  localStorage.setItem(getUserStorageKey(key), JSON.stringify(value));
 }
 
 const remoteTables = {
@@ -422,6 +441,7 @@ async function initializeAuthenticatedApp(user) {
     return;
   }
   loadCurrentUserState();
+  loadGeneratorSettingsForCurrentUser();
   logUsage('session_started');
   await loadRemoteData();
   refs.authPanel.hidden = true;
@@ -439,6 +459,7 @@ function resetGuestData() {
   currentUser = null;
   currentProfile = null;
   loadCurrentUserState();
+  loadGeneratorSettingsForCurrentUser();
   if (refs.userEmail) refs.userEmail.textContent = '';
 }
 
@@ -829,6 +850,60 @@ function printWeeklyPlan() {
   if (!reportWindow) { alert('El navegador ha bloqueado la ventana de impresión. Permite ventanas emergentes para StudyFlow.'); return; }
   reportWindow.document.write(`<!doctype html><html lang="es"><head><meta charset="UTF-8"><title>Plan semanal · StudyFlow</title><style>@page{size:landscape;margin:8mm}body{margin:0;background:#fff}img{display:block;width:100%;height:auto}</style></head><body><img src="data:image/svg+xml;charset=utf-8,${encodeURIComponent(buildWeeklySvg())}" alt="Plan semanal de StudyFlow"><script>window.addEventListener('load',()=>setTimeout(()=>window.print(),250));</script></body></html>`);
   reportWindow.document.close();
+}
+
+function getSortedTasks() {
+  return [...state.tasks].sort((first, second) => `${first.date} ${first.startTime || '09:00'}`.localeCompare(`${second.date} ${second.startTime || '09:00'}`));
+}
+
+function printFullPlan() {
+  const tasks = getSortedTasks();
+  if (!tasks.length) { alert('No hay tareas en el calendario para imprimir.'); return; }
+  const reportWindow = window.open('', '_blank');
+  if (!reportWindow) { alert('El navegador ha bloqueado la ventana de impresión. Permite ventanas emergentes para StudyFlow.'); return; }
+  const rows = tasks.map((task) => `
+    <tr>
+      <td>${escapeHtml(formatDisplayDate(task.date))}</td>
+      <td>${escapeHtml(task.startTime || '09:00')}</td>
+      <td>${escapeHtml(String(task.duration || 0))} min</td>
+      <td><strong>${escapeHtml(task.title)}</strong><small>${escapeHtml(task.subject || '')}</small></td>
+      <td>${escapeHtml(task.priority || 'Media')}</td>
+      <td>${escapeHtml(task.status || (task.completed ? 'completado' : 'planificado'))}</td>
+    </tr>`).join('');
+  reportWindow.document.write(`<!doctype html><html lang="es"><head><meta charset="UTF-8"><title>Plan completo · StudyFlow</title><style>@page{size:A4;margin:12mm}body{font-family:Arial,sans-serif;color:#17252b}h1{margin:0 0 4px;font-size:24px}p{margin:0 0 16px;color:#68777d}table{width:100%;border-collapse:collapse;font-size:11px}th,td{padding:7px 8px;border-bottom:1px solid #d3dedb;text-align:left;vertical-align:top}th{background:#eef3f0;color:#435358;text-transform:uppercase;font-size:9px}small{display:block;margin-top:3px;color:#68777d}</style></head><body><h1>Plan completo StudyFlow</h1><p>${tasks.length} bloques · generado el ${escapeHtml(formatDisplayDate(formatDate(new Date())))}</p><table><thead><tr><th>Fecha</th><th>Hora</th><th>Duración</th><th>Bloque</th><th>Prioridad</th><th>Estado</th></tr></thead><tbody>${rows}</tbody></table><script>window.addEventListener('load',()=>setTimeout(()=>window.print(),250));</script></body></html>`);
+  reportWindow.document.close();
+}
+
+function formatIcsDateTime(date, time) {
+  return `${date.replace(/-/g, '')}T${String(time || '09:00').replace(':', '')}00`;
+}
+
+function addMinutesToDateTime(date, time, minutes) {
+  const value = new Date(`${date}T${time || '09:00'}:00`);
+  value.setMinutes(value.getMinutes() + Number(minutes || 0));
+  return `${formatDate(value).replace(/-/g, '')}T${String(value.getHours()).padStart(2, '0')}${String(value.getMinutes()).padStart(2, '0')}00`;
+}
+
+function escapeIcsText(value) {
+  return String(value || '').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
+}
+
+function downloadCalendarIcs() {
+  const tasks = getSortedTasks();
+  if (!tasks.length) { alert('No hay tareas en el calendario para exportar.'); return; }
+  const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
+  const events = tasks.map((task, index) => [
+    'BEGIN:VEVENT',
+    `UID:studyflow-${currentUser?.id || 'guest'}-${task.id || index}@studyflow.local`,
+    `DTSTAMP:${stamp}`,
+    `DTSTART:${formatIcsDateTime(task.date, task.startTime)}`,
+    `DTEND:${addMinutesToDateTime(task.date, task.startTime, task.duration)}`,
+    `SUMMARY:${escapeIcsText(task.title)}`,
+    `DESCRIPTION:${escapeIcsText(`${task.subject || ''} · ${task.priority || 'Media'} · ${task.status || 'planificado'}`)}`,
+    'END:VEVENT',
+  ].join('\r\n')).join('\r\n');
+  const calendar = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//StudyFlow//Plan de estudio//ES', 'CALSCALE:GREGORIAN', events, 'END:VCALENDAR'].join('\r\n');
+  downloadExportBlob(new Blob([calendar], { type: 'text/calendar;charset=utf-8' }), `studyflow-calendario-${formatDate(new Date())}.ics`);
 }
 
 function renderDayDetail() {
@@ -1319,6 +1394,150 @@ let generatedPlanMarkdown = '';
 let generatorPdfTopics = [];
 let generatorPdfMarkdown = '';
 
+const weekdayLabels = { 0: 'Domingo', 1: 'Lunes', 2: 'Martes', 3: 'Miércoles', 4: 'Jueves', 5: 'Viernes', 6: 'Sábado' };
+const defaultAvailabilityReasons = ['Descanso nocturno', 'Trabajo', 'Comida', 'Conciliación', 'Otro'];
+
+function getDefaultAvailabilityWindow() {
+  return [{ start: '09:00', end: '12:00', reason: 'Descanso nocturno' }];
+}
+
+function normalizeAvailabilityWindow(window) {
+  const start = /^\d{2}:\d{2}$/.test(window?.start || '') ? window.start : '09:00';
+  const end = /^\d{2}:\d{2}$/.test(window?.end || '') ? window.end : '12:00';
+  return {
+    start,
+    end: timeToMinutes(end) > timeToMinutes(start) ? end : minutesToTime(Math.min(23 * 60 + 59, timeToMinutes(start) + 60)),
+    reason: String(window?.reason || 'Descanso nocturno'),
+  };
+}
+
+function renderAvailabilityWindow(window = getDefaultAvailabilityWindow()[0]) {
+  const normalized = normalizeAvailabilityWindow(window);
+  return `
+    <div class="availability-row" data-availability-row>
+      <label>Desde<input data-availability-start type="time" value="${normalized.start}" /></label>
+      <label>Hasta<input data-availability-end type="time" value="${normalized.end}" /></label>
+      <label>Motivo fuera de franja<select data-availability-reason>${defaultAvailabilityReasons.map((reason) => `<option value="${reason}" ${reason === normalized.reason ? 'selected' : ''}>${reason}</option>`).join('')}</select></label>
+      <button class="ghost-btn small danger-btn" type="button" data-remove-availability-window>Quitar</button>
+    </div>`;
+}
+
+function getGeneratorAvailabilityFromForm() {
+  const availability = {};
+  if (!refs.generatorDayAvailability) return availability;
+  refs.generatorDayAvailability.querySelectorAll('[data-availability-day]').forEach((dayBlock) => {
+    const day = Number(dayBlock.dataset.availabilityDay);
+    const windows = [...dayBlock.querySelectorAll('[data-availability-row]')].map((row) => normalizeAvailabilityWindow({
+      start: row.querySelector('[data-availability-start]')?.value,
+      end: row.querySelector('[data-availability-end]')?.value,
+      reason: row.querySelector('[data-availability-reason]')?.value,
+    })).filter((window) => timeToMinutes(window.end) > timeToMinutes(window.start));
+    availability[day] = windows.length ? windows : getDefaultAvailabilityWindow();
+  });
+  return availability;
+}
+
+function renderGeneratorAvailability(availability = getGeneratorAvailabilityFromForm()) {
+  if (!refs.generatorDayAvailability) return;
+  const selectedDays = [...refs.generatorWeekdays.querySelectorAll('input:checked')].map((input) => Number(input.value));
+  refs.generatorDayAvailability.innerHTML = selectedDays.map((day) => {
+    const windows = (availability[day] || getDefaultAvailabilityWindow()).map(normalizeAvailabilityWindow);
+    return `
+      <section class="availability-day" data-availability-day="${day}">
+        <div class="availability-day-header"><strong>${weekdayLabels[day]}</strong><button class="ghost-btn small" type="button" data-add-availability-window="${day}">+ Franja</button></div>
+        <div class="availability-windows">${windows.map((window) => renderAvailabilityWindow(window)).join('')}</div>
+      </section>`;
+  }).join('') || '<p class="availability-empty">Marca al menos un día para definir franjas horarias.</p>';
+}
+
+function collectGeneratorSettings() {
+  if (!refs.planGeneratorForm) return {};
+  return {
+    courseType: refs.generatorCourseType.value,
+    startDate: refs.generatorStartDate.value,
+    examDate: refs.generatorExamDate.value,
+    age: refs.generatorAge.value,
+    hours: refs.generatorHours.value,
+    syllabi: refs.generatorSyllabi.value,
+    topics: refs.generatorTopics.value,
+    generalTemario: refs.generatorGeneralTemario.value,
+    generalTemas: refs.generatorGeneralTemas.value,
+    generalClases: refs.generatorGeneralClases.value,
+    specificTemario: refs.generatorSpecificTemario.value,
+    specificTemas: refs.generatorSpecificTemas.value,
+    specificClases: refs.generatorSpecificClases.value,
+    convocatoriaIndex: refs.generatorConvocatoriaIndex.value,
+    milestones: refs.generatorMilestones.value,
+    breakMode: refs.generatorBreakMode.value,
+    breakEvery: refs.generatorBreakEvery.value,
+    breakDuration: refs.generatorBreakDuration.value,
+    weekdays: [...refs.generatorWeekdays.querySelectorAll('input:checked')].map((input) => Number(input.value)),
+    availability: getGeneratorAvailabilityFromForm(),
+    syllabusDetails: getSyllabusOptions(),
+  };
+}
+
+function saveGeneratorSettings() {
+  saveStoredObject(STORAGE_KEYS.generatorSettings, collectGeneratorSettings());
+}
+
+function getDefaultGeneratorSettings() {
+  return {
+    courseType: 'eso',
+    startDate: formatDate(new Date()),
+    examDate: addDays(new Date(), 90),
+    age: '25',
+    hours: '3',
+    syllabi: '1',
+    topics: '10',
+    generalTemario: 'Temario general',
+    generalTemas: '12',
+    generalClases: '2',
+    specificTemario: 'Temario específico',
+    specificTemas: '12',
+    specificClases: '3',
+    convocatoriaIndex: 'Índice de convocatoria',
+    milestones: '',
+    breakMode: 'recommended',
+    breakEvery: '50',
+    breakDuration: '10',
+    weekdays: [1, 2, 3, 4, 5],
+    availability: {},
+    syllabusDetails: [],
+  };
+}
+
+function applyGeneratorSettings(settings) {
+  if (!settings || !refs.planGeneratorForm) return;
+  refs.generatorCourseType.value = settings.courseType;
+  refs.generatorStartDate.value = settings.startDate;
+  refs.generatorExamDate.value = settings.examDate;
+  refs.generatorAge.value = settings.age;
+  refs.generatorHours.value = settings.hours;
+  refs.generatorSyllabi.value = settings.syllabi;
+  refs.generatorTopics.value = settings.topics;
+  refs.generatorGeneralTemario.value = settings.generalTemario;
+  refs.generatorGeneralTemas.value = settings.generalTemas;
+  refs.generatorGeneralClases.value = settings.generalClases;
+  refs.generatorSpecificTemario.value = settings.specificTemario;
+  refs.generatorSpecificTemas.value = settings.specificTemas;
+  refs.generatorSpecificClases.value = settings.specificClases;
+  refs.generatorConvocatoriaIndex.value = settings.convocatoriaIndex;
+  refs.generatorMilestones.value = settings.milestones;
+  refs.generatorBreakMode.value = settings.breakMode;
+  refs.generatorBreakEvery.value = settings.breakEvery;
+  refs.generatorBreakDuration.value = settings.breakDuration;
+  if (Array.isArray(settings.weekdays)) refs.generatorWeekdays.querySelectorAll('input').forEach((input) => { input.checked = settings.weekdays.includes(Number(input.value)); });
+  renderSyllabusDetails(settings.syllabusDetails);
+  renderGeneratorAvailability(settings.availability || {});
+  renderCourseTypeFields();
+}
+
+function loadGeneratorSettingsForCurrentUser() {
+  if (!refs.planGeneratorForm) return;
+  applyGeneratorSettings({ ...getDefaultGeneratorSettings(), ...loadStoredObject(STORAGE_KEYS.generatorSettings, {}) });
+}
+
 function dateDifferenceInDays(start, end) {
   const startDate = new Date(`${start}T00:00:00`);
   const endDate = new Date(`${end}T00:00:00`);
@@ -1548,14 +1767,44 @@ function downloadPdfMarkdownFile() {
   URL.revokeObjectURL(url);
 }
 
-function renderSyllabusDetails() {
+function renderClassReservation(reservation = {}, index = 0) {
+  const day = Number.isFinite(Number(reservation.day)) ? Number(reservation.day) : 3;
+  const start = /^\d{2}:\d{2}$/.test(reservation.start || '') ? reservation.start : '17:00';
+  const duration = Math.max(15, Math.min(360, Number(reservation.duration) || 120));
+  return `
+    <div class="class-reservation-row" data-class-reservation-row>
+      <label>Día<select data-class-reservation-day>${Object.entries(weekdayLabels).map(([value, label]) => `<option value="${value}" ${Number(value) === day ? 'selected' : ''}>${label}</option>`).join('')}</select></label>
+      <label>Hora<input data-class-reservation-start type="time" value="${start}" /></label>
+      <label>Duración<input data-class-reservation-duration type="number" min="15" max="360" step="15" value="${duration}" /></label>
+      <span>clase ${index + 1}</span>
+    </div>`;
+}
+
+function getClassReservationsFromRow(row) {
+  return [...row.querySelectorAll('[data-class-reservation-row]')].map((reservationRow) => ({
+    day: Number(reservationRow.querySelector('[data-class-reservation-day]')?.value),
+    start: reservationRow.querySelector('[data-class-reservation-start]')?.value || '17:00',
+    duration: Math.max(15, Math.min(360, Number(reservationRow.querySelector('[data-class-reservation-duration]')?.value) || 120)),
+  })).filter((reservation) => Number.isFinite(reservation.day));
+}
+
+function syncClassReservationsForRow(row, savedReservations = getClassReservationsFromRow(row)) {
+  const count = Math.max(0, Math.min(20, Number(row.querySelector('[data-syllabus-classes]')?.value) || 0));
+  const container = row.querySelector('[data-class-reservations]');
+  if (!container) return;
+  container.innerHTML = Array.from({ length: count }, (_, index) => renderClassReservation(savedReservations[index], index)).join('')
+    || '<p class="class-reservation-empty">Sin clases recurrentes para reservar.</p>';
+}
+
+function renderSyllabusDetails(savedDetails = []) {
   const count = Math.max(1, Math.min(20, Number(refs.generatorSyllabi.value) || 1));
   refs.generatorSyllabusDetails.innerHTML = Array.from({ length: count }, (_, index) => `
     <div class="syllabus-row">
-      <input data-syllabus-name="${index}" type="text" value="Temario ${index + 1}" aria-label="Nombre del temario ${index + 1}" />
-      <textarea data-syllabus-topic-list="${index}" rows="3" placeholder="Tema 1\nTema 2\nTema 3" aria-label="Temas de la asignatura ${index + 1}"></textarea>
-      <input data-syllabus-classes="${index}" type="number" min="1" max="20" value="1" aria-label="Clases semanales del temario ${index + 1}" />
+      <input data-syllabus-name="${index}" type="text" value="${escapeHtml(savedDetails[index]?.name || `Temario ${index + 1}`)}" aria-label="Nombre del temario ${index + 1}" />
+      <textarea data-syllabus-topic-list="${index}" rows="3" placeholder="Tema 1\nTema 2\nTema 3" aria-label="Temas de la asignatura ${index + 1}">${escapeHtml((savedDetails[index]?.topicTitles || []).join('\n'))}</textarea>
+      <input data-syllabus-classes="${index}" type="number" min="1" max="20" value="${savedDetails[index]?.classesPerWeek || 1}" aria-label="Clases semanales del temario ${index + 1}" />
       <span>un tema por línea · sesiones/sem.</span>
+      <div class="class-reservations" data-class-reservations>${Array.from({ length: Math.max(0, Math.min(20, Number(savedDetails[index]?.classesPerWeek) || 1)) }, (_, reservationIndex) => renderClassReservation(savedDetails[index]?.classReservations?.[reservationIndex], reservationIndex)).join('')}</div>
     </div>`).join('');
 }
 
@@ -1564,7 +1813,8 @@ function getSyllabusOptions() {
     name: row.querySelector(`[data-syllabus-name="${index}"]`).value.trim() || `Temario ${index + 1}`,
     topicTitles: row.querySelector(`[data-syllabus-topic-list="${index}"]`).value.split(/\r?\n/).map((title) => title.trim()).filter(Boolean),
     topicCount: 0,
-    classesPerWeek: Number(row.querySelector(`[data-syllabus-classes="${index}"]`).value) || 1,
+    classesPerWeek: Math.max(1, Number(row.querySelector(`[data-syllabus-classes="${index}"]`).value) || 1),
+    classReservations: getClassReservationsFromRow(row),
   })).map((syllabus) => ({
     ...syllabus,
     topicCount: syllabus.topicTitles.length || Number(refs.generatorTopics.value) || 10,
@@ -1657,16 +1907,115 @@ function splitIntoChunks(totalMinutes, dailyCapacity, breakEvery) {
   return chunks;
 }
 
+function getAvailabilityWindowsForDate(date, options) {
+  const day = new Date(`${date}T00:00:00`).getDay();
+  const windows = (options.availability?.[day] || getDefaultAvailabilityWindow()).map(normalizeAvailabilityWindow)
+    .map((window) => ({ ...window, startMinutes: timeToMinutes(window.start), endMinutes: timeToMinutes(window.end) }))
+    .filter((window) => window.endMinutes > window.startMinutes)
+    .sort((first, second) => first.startMinutes - second.startMinutes);
+  return windows.length ? windows : getDefaultAvailabilityWindow().map((window) => ({ ...window, startMinutes: timeToMinutes(window.start), endMinutes: timeToMinutes(window.end) }));
+}
+
+function getDateRange(startDate, endDate) {
+  const dates = [];
+  for (let cursor = new Date(`${startDate}T00:00:00`); formatDate(cursor) <= endDate; cursor.setDate(cursor.getDate() + 1)) {
+    dates.push(formatDate(cursor));
+  }
+  return dates;
+}
+
+function getClassReservationTasks(options) {
+  const dates = getDateRange(options.startDate, addDays(options.examDate, -1));
+  const tasks = [];
+  (options.syllabusOptions || []).forEach((syllabus) => {
+    (syllabus.classReservations || []).forEach((reservation, index) => {
+      const day = Number(reservation.day);
+      const start = /^\d{2}:\d{2}$/.test(reservation.start || '') ? reservation.start : '17:00';
+      const duration = Math.max(15, Math.min(360, Number(reservation.duration) || 120));
+      dates.forEach((date) => {
+        if (new Date(`${date}T00:00:00`).getDay() !== day) return;
+        tasks.push({
+          title: `Clase presencial/online ${index + 1}: ${syllabus.name}`,
+          subject: syllabus.name,
+          duration,
+          date,
+          startTime: start,
+          priority: 'Alta',
+          difficulty: 'media',
+          status: 'planificado',
+          completed: false,
+        });
+      });
+    });
+  });
+  return tasks;
+}
+
+function getReservedIntervalsForDate(date, options) {
+  return getClassReservationTasks(options)
+    .filter((task) => task.date === date)
+    .map((task) => ({ startMinutes: timeToMinutes(task.startTime), endMinutes: timeToMinutes(task.startTime) + Number(task.duration || 0) }))
+    .filter((interval) => interval.endMinutes > interval.startMinutes)
+    .sort((first, second) => first.startMinutes - second.startMinutes);
+}
+
+function subtractReservedIntervals(windows, reservedIntervals) {
+  return windows.flatMap((window) => {
+    let segments = [{ startMinutes: window.startMinutes, endMinutes: window.endMinutes }];
+    reservedIntervals.forEach((reserved) => {
+      segments = segments.flatMap((segment) => {
+        if (reserved.endMinutes <= segment.startMinutes || reserved.startMinutes >= segment.endMinutes) return [segment];
+        return [
+          { startMinutes: segment.startMinutes, endMinutes: Math.max(segment.startMinutes, reserved.startMinutes) },
+          { startMinutes: Math.min(segment.endMinutes, reserved.endMinutes), endMinutes: segment.endMinutes },
+        ].filter((item) => item.endMinutes - item.startMinutes >= 15);
+      });
+    });
+    return segments;
+  });
+}
+
+function getStudyWindowsForDate(date, options) {
+  return subtractReservedIntervals(getAvailabilityWindowsForDate(date, options), getReservedIntervalsForDate(date, options));
+}
+
+function getDateCapacity(date, options) {
+  const availabilityMinutes = getStudyWindowsForDate(date, options).reduce((sum, window) => sum + (window.endMinutes - window.startMinutes), 0);
+  return Math.min(Math.round(options.hours * 60), availabilityMinutes);
+}
+
+function getStartTimeForDateUsage(date, used, options) {
+  let offset = Math.max(0, Number(used) || 0);
+  const windows = getStudyWindowsForDate(date, options);
+  for (const window of windows) {
+    const duration = window.endMinutes - window.startMinutes;
+    if (offset < duration) return minutesToTime(window.startMinutes + offset);
+    offset -= duration;
+  }
+  if (!windows.length) return '09:00';
+  return minutesToTime(windows[windows.length - 1].endMinutes);
+}
+
+function getRemainingAvailabilityForUsage(date, used, options) {
+  let offset = Math.max(0, Number(used) || 0);
+  const windows = getStudyWindowsForDate(date, options);
+  for (const window of windows) {
+    const duration = window.endMinutes - window.startMinutes;
+    if (offset < duration) return duration - offset;
+    offset -= duration;
+  }
+  return 0;
+}
+
 function createGeneratorSchedule(topics, options) {
   const reviewStart = addDays(options.examDate, -21);
   const studyDates = getGeneratorDates(options.startDate, addDays(reviewStart, -1), options.weekdays);
   const reviewDates = getGeneratorDates(reviewStart, addDays(options.examDate, -1), options.weekdays);
   if (!studyDates.length || !reviewDates.length) throw new Error('No hay días disponibles suficientes con la disposición semanal elegida.');
 
-  const dailyCapacity = Math.round(options.hours * 60);
   const dayUsage = new Map(studyDates.map((date) => [date, 0]));
   const reviewUsage = new Map(reviewDates.map((date) => [date, 0]));
-  const tasks = [];
+  const tasks = getClassReservationTasks(options);
   const firstStudyDates = new Map();
   options.classWeightAverage = topics.length
     ? topics.reduce((sum, topic) => sum + Number(topic.classesPerWeek || 1), 0) / topics.length
@@ -1678,7 +2027,7 @@ function createGeneratorSchedule(topics, options) {
       subject,
       duration,
       date,
-      startTime: minutesToTime(9 * 60 + (dayUsage.get(date) || 0)),
+      startTime: getStartTimeForDateUsage(date, dayUsage.get(date) || 0, options),
       priority,
       difficulty,
       status: extraStatus,
@@ -1694,12 +2043,17 @@ function createGeneratorSchedule(topics, options) {
       const date = studyDates[dateIndex];
       if (!date) throw new Error('La carga estimada no cabe antes de las tres semanas de repaso. Aumenta horas/días o reduce temas.');
       const used = dayUsage.get(date) || 0;
-      const free = Math.max(0, dailyCapacity - used);
+      const free = Math.max(0, getDateCapacity(date, options) - used);
       if (free <= 0) {
         dateIndex += 1;
         continue;
       }
-      const chunkLimit = free >= 15 ? Math.min(free, Math.max(15, options.breakEvery)) : free;
+      const windowRemaining = getRemainingAvailabilityForUsage(date, used, options);
+      if (windowRemaining > 0 && windowRemaining < 15) {
+        dayUsage.set(date, used + windowRemaining);
+        continue;
+      }
+      const chunkLimit = free >= 15 ? Math.min(free, windowRemaining, Math.max(15, options.breakEvery)) : free;
       const safeChunk = Math.max(0, Math.min(remaining, chunkLimit));
       if (safeChunk <= 0) {
         dateIndex += 1;
@@ -1717,15 +2071,17 @@ function createGeneratorSchedule(topics, options) {
 
   const assignReviewOnDay = (date, duration, title, subject, difficulty, priority) => {
     const used = reviewUsage.get(date) || 0;
-    const free = Math.max(0, dailyCapacity - used);
+    const free = Math.max(0, getDateCapacity(date, options) - used);
     if (free <= 0 || duration <= 0) return false;
-    const chunk = Math.min(duration, Math.max(15, free));
+    const windowRemaining = getRemainingAvailabilityForUsage(date, used, options);
+    if (windowRemaining > 0 && windowRemaining < 15) return false;
+    const chunk = Math.min(duration, Math.max(15, Math.min(free, windowRemaining || free)));
     tasks.push({
       title,
       subject,
       duration: chunk,
       date,
-      startTime: minutesToTime(9 * 60 + used),
+      startTime: getStartTimeForDateUsage(date, used, options),
       priority,
       difficulty,
       status: 'planificado',
@@ -1750,7 +2106,7 @@ function createGeneratorSchedule(topics, options) {
 
     const errorReviewMinutes = Math.max(20, Math.round(topic.reviewWeight / 2));
     if (errorReviewMinutes > 0) {
-      const reviewDate = reviewDates.find((date) => (reviewUsage.get(date) || 0) + errorReviewMinutes <= dailyCapacity);
+      const reviewDate = reviewDates.find((date) => (reviewUsage.get(date) || 0) + errorReviewMinutes <= getDateCapacity(date, options));
       if (reviewDate) {
         assignReviewOnDay(reviewDate, errorReviewMinutes, `Corrección de errores: ${topic.title}`, topic.syllabus, 'media', 'Alta');
       }
@@ -1770,7 +2126,7 @@ function createGeneratorSchedule(topics, options) {
     if (!firstDate) return;
     reviewActions.forEach((action) => {
       const targetDate = addDays(firstDate, action.days);
-      const reviewDate = reviewDates.find((date) => date >= targetDate && (reviewUsage.get(date) || 0) + action.minutes <= dailyCapacity);
+      const reviewDate = reviewDates.find((date) => date >= targetDate && (reviewUsage.get(date) || 0) + action.minutes <= getDateCapacity(date, options));
       if (!reviewDate) return;
       assignReviewOnDay(reviewDate, action.minutes, `Repaso ${action.days}d: ${topic.title} · ${action.label}`, topic.syllabus, 'media', 'Alta');
     });
@@ -1812,7 +2168,7 @@ function parseGeneratorMilestones(value) {
 function getGeneratorCapacityReport(topics, options) {
   const reviewStart = addDays(options.examDate, -21);
   const studyDates = getGeneratorDates(options.startDate, addDays(reviewStart, -1), options.weekdays);
-  const availableMinutes = studyDates.length * Math.round(options.hours * 60);
+  const availableMinutes = studyDates.reduce((sum, date) => sum + getDateCapacity(date, options), 0);
   const preparedTopics = topics.map((topic, index) => enrichTopicForPlanning(topic, { ...options, classWeightAverage: topics.length ? topics.reduce((sum, item) => sum + Number(item.classesPerWeek || 1), 0) / topics.length : 1 }, index));
   const estimatedMinutes = preparedTopics.reduce((sum, topic) => sum + topic.minutes + topic.questionMinutes + topic.practiceMinutes, 0) + (options.milestones?.length || 0) * 30;
   const utilization = availableMinutes ? Math.round((estimatedMinutes / availableMinutes) * 100) : 100;
@@ -1841,8 +2197,11 @@ async function generateStudyPlan(event) {
     breakDuration: Number(refs.generatorBreakDuration.value),
     milestones: parseGeneratorMilestones(refs.generatorMilestones.value),
     weekdays: new Set([...refs.generatorWeekdays.querySelectorAll('input:checked')].map((input) => Number(input.value))),
+    availability: getGeneratorAvailabilityFromForm(),
   };
+  saveGeneratorSettings();
   const syllabusOptions = getCourseSyllabusOptions();
+  options.syllabusOptions = syllabusOptions;
   const totalDays = dateDifferenceInDays(options.startDate, options.examDate);
   if (totalDays < 22) { alert('El examen debe estar al menos a 22 días del comienzo para reservar 3 semanas completas de repaso.'); return; }
   if (!options.weekdays.size) { alert('Selecciona al menos un día semanal de estudio.'); return; }
@@ -2145,6 +2504,8 @@ refs.nextWeek.addEventListener('click', () => {
 if (refs.printWeekButton) refs.printWeekButton.addEventListener('click', printWeeklyPlan);
 if (refs.downloadWeekJpeg) refs.downloadWeekJpeg.addEventListener('click', downloadWeeklyJpeg);
 if (refs.downloadWeekWallpaper) refs.downloadWeekWallpaper.addEventListener('click', downloadWeeklyWallpaper);
+if (refs.printFullPlanButton) refs.printFullPlanButton.addEventListener('click', printFullPlan);
+if (refs.downloadCalendarIcsButton) refs.downloadCalendarIcsButton.addEventListener('click', downloadCalendarIcs);
 if (refs.reschedulePendingButton) refs.reschedulePendingButton.addEventListener('click', reschedulePendingTasks);
 
 refs.navButtons.forEach((button) => {
@@ -2198,13 +2559,42 @@ if (refs.planGeneratorForm) {
   renderSyllabusDetails();
   const updateBreakMode = () => {
     const isRecommended = refs.generatorBreakMode.value === 'recommended';
-    refs.generatorBreakEvery.disabled = isRecommended;
-    refs.generatorBreakDuration.disabled = isRecommended;
-    refs.generatorBreakNote.value = isRecommended ? 'Se calculará automáticamente' : 'Intervalo y duración manuales';
+    refs.generatorBreakNote.value = isRecommended ? 'Se calculará al generar; puedes editar los valores como referencia' : 'Intervalo y duración manuales';
   };
-  refs.generatorSyllabi.addEventListener('input', renderSyllabusDetails);
-  refs.generatorTopics.addEventListener('input', renderSyllabusDetails);
+  loadGeneratorSettingsForCurrentUser();
+  refs.generatorSyllabi.addEventListener('input', () => { renderSyllabusDetails(); saveGeneratorSettings(); });
+  refs.generatorTopics.addEventListener('input', () => { renderSyllabusDetails(getSyllabusOptions()); saveGeneratorSettings(); });
   refs.generatorBreakMode.addEventListener('change', updateBreakMode);
+  [refs.generatorBreakEvery, refs.generatorBreakDuration].forEach((input) => {
+    input.addEventListener('input', () => {
+      refs.generatorBreakMode.value = 'custom';
+      updateBreakMode();
+      saveGeneratorSettings();
+    });
+  });
+  refs.planGeneratorForm.addEventListener('input', saveGeneratorSettings);
+  refs.planGeneratorForm.addEventListener('change', saveGeneratorSettings);
+  refs.generatorSyllabusDetails.addEventListener('input', (event) => {
+    if (!event.target.matches('[data-syllabus-classes]')) return;
+    syncClassReservationsForRow(event.target.closest('.syllabus-row'));
+    saveGeneratorSettings();
+  });
+  refs.generatorWeekdays.addEventListener('change', () => { renderGeneratorAvailability(); saveGeneratorSettings(); });
+  refs.generatorDayAvailability.addEventListener('click', (event) => {
+    const addButton = event.target.closest('[data-add-availability-window]');
+    const removeButton = event.target.closest('[data-remove-availability-window]');
+    if (addButton) {
+      const block = refs.generatorDayAvailability.querySelector(`[data-availability-day="${addButton.dataset.addAvailabilityWindow}"] .availability-windows`);
+      if (block) block.insertAdjacentHTML('beforeend', renderAvailabilityWindow({ start: '16:00', end: '18:00', reason: 'Trabajo' }));
+      saveGeneratorSettings();
+    }
+    if (removeButton) {
+      const dayBlock = removeButton.closest('[data-availability-day]');
+      const rows = dayBlock.querySelectorAll('[data-availability-row]');
+      if (rows.length > 1) removeButton.closest('[data-availability-row]').remove();
+      saveGeneratorSettings();
+    }
+  });
   updateBreakMode();
   refs.generatorFiles.addEventListener('change', () => {
     const count = refs.generatorFiles.files.length;
@@ -2229,6 +2619,7 @@ if (refs.planGeneratorForm) {
     refs.ocrGeneratorPdfs.hidden = true;
     refs.downloadPdfMarkdown.disabled = true;
     renderSyllabusDetails();
+    saveGeneratorSettings();
   });
   refs.planGeneratorForm.addEventListener('submit', generateStudyPlan);
   refs.downloadGeneratedPlan.addEventListener('click', downloadGeneratedPlanFile);
