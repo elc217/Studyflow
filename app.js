@@ -1865,12 +1865,17 @@ function getSyllabusOptions() {
 function getCourseSyllabusOptions() {
   const courseType = refs.generatorCourseType.value;
   if (courseType === 'oposiciones') {
+    const scheduleOptions = getSyllabusOptions();
     const generalName = (refs.generatorGeneralTemario.value || 'Temario general').trim() || 'Temario general';
     const specificName = (refs.generatorSpecificTemario.value || 'Temario específico').trim() || 'Temario específico';
     return [
       { name: generalName, topicCount: Number(refs.generatorGeneralTemas.value) || 12, classesPerWeek: Number(refs.generatorGeneralClases.value) || 2 },
       { name: specificName, topicCount: Number(refs.generatorSpecificTemas.value) || 12, classesPerWeek: Number(refs.generatorSpecificClases.value) || 3 },
-    ];
+    ].map((syllabus, index) => ({
+      ...syllabus,
+      classesPerWeek: Math.max(0, Number(scheduleOptions[index]?.classesPerWeek ?? syllabus.classesPerWeek)),
+      classReservations: scheduleOptions[index]?.classReservations || [],
+    }));
   }
   return getSyllabusOptions();
 }
@@ -1880,8 +1885,18 @@ function renderCourseTypeFields() {
   refs.generatorGenericCourseFields.hidden = isOposiciones;
   refs.generatorAcademicHint.hidden = isOposiciones;
   refs.generatorOposicionesFields.hidden = !isOposiciones;
-  refs.generatorSyllabusDetails.hidden = isOposiciones;
-  refs.generatorSyllabusLabel.textContent = isOposiciones ? 'Temarios de oposición' : 'Asignaturas, módulos y temas';
+  refs.generatorSyllabusDetails.hidden = false;
+  refs.generatorSyllabusLabel.textContent = isOposiciones ? 'Horarios de clases por temario de oposición' : 'Asignaturas, módulos y temas';
+  if (isOposiciones) {
+    const existingSchedules = getSyllabusOptions();
+    const generalName = (refs.generatorGeneralTemario.value || 'Temario general').trim() || 'Temario general';
+    const specificName = (refs.generatorSpecificTemario.value || 'Temario específico').trim() || 'Temario específico';
+    refs.generatorSyllabi.value = '2';
+    renderSyllabusDetails([
+      { name: generalName, classesPerWeek: Number(refs.generatorGeneralClases.value) || 2, classReservations: existingSchedules.find((item) => item.name === generalName)?.classReservations || [] },
+      { name: specificName, classesPerWeek: Number(refs.generatorSpecificClases.value) || 3, classReservations: existingSchedules.find((item) => item.name === specificName)?.classReservations || [] },
+    ]);
+  }
 }
 
 function orderTopicsByClasses(topics, syllabusOptions) {
@@ -2664,7 +2679,13 @@ if (refs.planGeneratorForm) {
   refs.planGeneratorForm.addEventListener('change', saveGeneratorSettings);
   refs.generatorSyllabusDetails.addEventListener('input', (event) => {
     if (event.target.matches('[data-syllabus-classes]')) {
-      syncClassReservationsForRow(event.target.closest('.syllabus-row'));
+      const row = event.target.closest('.syllabus-row');
+      syncClassReservationsForRow(row);
+      if (refs.generatorCourseType.value === 'oposiciones') {
+        const index = [...refs.generatorSyllabusDetails.querySelectorAll('.syllabus-row')].indexOf(row);
+        const source = index === 0 ? refs.generatorGeneralClases : refs.generatorSpecificClases;
+        if (source) source.value = event.target.value;
+      }
     }
     if (event.target.matches('[data-class-reservation-end]')) {
       updateClassReservationDuration(event.target.closest('[data-class-reservation-row]'));
@@ -2707,14 +2728,24 @@ if (refs.planGeneratorForm) {
   refs.generatorPdfReviewList.addEventListener('change', updatePdfReviewFromInputs);
   refs.generatorCourseType.addEventListener('change', renderCourseTypeFields);
   refs.generatorCourseType.addEventListener('change', () => {
-    refs.generatorSyllabusDetails.innerHTML = '';
     generatorPdfTopics = [];
     generatorPdfMarkdown = '';
     refs.generatorPdfReview.hidden = true;
     refs.ocrGeneratorPdfs.hidden = true;
     refs.downloadPdfMarkdown.disabled = true;
-    renderSyllabusDetails();
+    if (refs.generatorCourseType.value !== 'oposiciones') renderSyllabusDetails();
     saveGeneratorSettings();
+  });
+  [refs.generatorGeneralClases, refs.generatorSpecificClases].forEach((input, index) => {
+    input.addEventListener('input', () => {
+      if (refs.generatorCourseType.value !== 'oposiciones') return;
+      const row = refs.generatorSyllabusDetails.querySelectorAll('.syllabus-row')[index];
+      const classes = row?.querySelector('[data-syllabus-classes]');
+      if (!classes) return;
+      classes.value = input.value;
+      syncClassReservationsForRow(row);
+      saveGeneratorSettings();
+    });
   });
   refs.planGeneratorForm.addEventListener('submit', generateStudyPlan);
   refs.downloadGeneratedPlan.addEventListener('click', downloadGeneratedPlanFile);
