@@ -34,6 +34,7 @@ Organizador visual de estudio con agenda semanal por horas, temporizador flexibl
 - Registro de minutos reales, sesiones de enfoque y notas de cierre por tarea.
 - Temporizador vinculado a la tarea activa y prioridades calculadas para el día seleccionado.
 - Reservas de clase persistentes en amarillo que bloquean su franja al generar el plan.
+- Clases por temario con inicio/fin de vigencia, recurrencia semanal o una fecha puntual.
 - Conversor de PDF orientado a temarios con índice editable, exportación Markdown y OCR opcional para PDFs escaneados.
 
 ## Ejecutar localmente

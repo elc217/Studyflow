@@ -1793,13 +1793,17 @@ function renderClassReservation(reservation = {}, index = 0) {
   const savedDuration = Number(reservation.duration);
   const end = /^\d{2}:\d{2}$/.test(reservation.end || '') ? reservation.end : minutesToTime(Math.min(23 * 60 + 59, timeToMinutes(start) + (savedDuration || 120)));
   const duration = Math.max(15, Math.min(360, savedDuration || timeToMinutes(end) - timeToMinutes(start)));
+  const recurring = reservation.recurring !== false;
   return `
     <div class="class-reservation-row" data-class-reservation-row>
-      <label>Materia / temario<input data-class-reservation-subject type="text" value="${escapeHtml(reservation.subject || '')}" placeholder="Usa el temario de esta fila" /></label>
       <label>Día<select data-class-reservation-day>${Object.entries(weekdayLabels).map(([value, label]) => `<option value="${value}" ${Number(value) === day ? 'selected' : ''}>${label}</option>`).join('')}</select></label>
       <label>Inicio<input data-class-reservation-start type="time" value="${start}" /></label>
       <label>Fin<input data-class-reservation-end type="time" value="${end}" /></label>
       <label>Duración (min)<input data-class-reservation-duration type="number" min="15" max="360" step="5" value="${duration}" /></label>
+      <label>¿Mismo día cada semana?<select data-class-reservation-recurring><option value="yes" ${recurring ? 'selected' : ''}>Sí</option><option value="no" ${recurring ? '' : 'selected'}>No</option></select></label>
+      <label data-class-recurring-start ${recurring ? '' : 'hidden'}>Desde<input data-class-reservation-start-date type="date" value="${escapeHtml(reservation.startDate || '')}" /></label>
+      <label data-class-recurring-end ${recurring ? '' : 'hidden'}>Hasta (opcional)<input data-class-reservation-end-date type="date" value="${escapeHtml(reservation.endDate || '')}" /></label>
+      <label data-class-single-date ${recurring ? 'hidden' : ''}>Fecha de la clase<input data-class-reservation-date type="date" value="${escapeHtml(reservation.classDate || reservation.startDate || '')}" /></label>
       <span>clase ${index + 1}</span>
     </div>`;
 }
@@ -1819,13 +1823,23 @@ function updateClassReservationEnd(reservationRow) {
   if (end) end.value = minutesToTime(Math.min(23 * 60 + 59, start + duration));
 }
 
+function updateClassReservationRecurrence(reservationRow) {
+  const recurring = reservationRow.querySelector('[data-class-reservation-recurring]')?.value !== 'no';
+  reservationRow.querySelector('[data-class-recurring-start]')?.toggleAttribute('hidden', !recurring);
+  reservationRow.querySelector('[data-class-recurring-end]')?.toggleAttribute('hidden', !recurring);
+  reservationRow.querySelector('[data-class-single-date]')?.toggleAttribute('hidden', recurring);
+}
+
 function getClassReservationsFromRow(row) {
   return [...row.querySelectorAll('[data-class-reservation-row]')].map((reservationRow) => ({
-    subject: reservationRow.querySelector('[data-class-reservation-subject]')?.value.trim() || '',
     day: Number(reservationRow.querySelector('[data-class-reservation-day]')?.value),
     start: reservationRow.querySelector('[data-class-reservation-start]')?.value || '17:00',
     end: reservationRow.querySelector('[data-class-reservation-end]')?.value || '19:00',
     duration: Math.max(15, Math.min(360, Number(reservationRow.querySelector('[data-class-reservation-duration]')?.value) || 120)),
+    recurring: reservationRow.querySelector('[data-class-reservation-recurring]')?.value !== 'no',
+    startDate: reservationRow.querySelector('[data-class-reservation-start-date]')?.value || '',
+    endDate: reservationRow.querySelector('[data-class-reservation-end-date]')?.value || '',
+    classDate: reservationRow.querySelector('[data-class-reservation-date]')?.value || '',
   })).filter((reservation) => Number.isFinite(reservation.day));
 }
 
@@ -1981,19 +1995,23 @@ function getDateRange(startDate, endDate) {
 }
 
 function getClassReservationTasks(options) {
-  const dates = getDateRange(options.startDate, addDays(options.examDate, -1));
+  const planEndDate = addDays(options.examDate, -1);
   const tasks = [];
   (options.syllabusOptions || []).forEach((syllabus) => {
     (syllabus.classReservations || []).forEach((reservation, index) => {
       const day = Number(reservation.day);
       const start = /^\d{2}:\d{2}$/.test(reservation.start || '') ? reservation.start : '17:00';
       const end = /^\d{2}:\d{2}$/.test(reservation.end || '') ? reservation.end : minutesToTime(timeToMinutes(start) + 120);
-      const duration = Math.max(15, Math.min(360, timeToMinutes(end) - timeToMinutes(start)));
-      dates.forEach((date) => {
-        if (new Date(`${date}T00:00:00`).getDay() !== day) return;
+      const duration = Math.max(15, Math.min(360, Number(reservation.duration) || timeToMinutes(end) - timeToMinutes(start)));
+      const recurring = reservation.recurring !== false;
+      const firstDate = recurring ? (reservation.startDate && reservation.startDate > options.startDate ? reservation.startDate : options.startDate) : (reservation.classDate || reservation.startDate);
+      const lastDate = recurring ? (reservation.endDate && reservation.endDate < planEndDate ? reservation.endDate : planEndDate) : firstDate;
+      if (!firstDate || !lastDate || firstDate > lastDate || firstDate > planEndDate || lastDate < options.startDate) return;
+      getDateRange(firstDate, lastDate).forEach((date) => {
+        if (recurring && new Date(`${date}T00:00:00`).getDay() !== day) return;
         tasks.push({
-          title: `Clase presencial/online ${index + 1}: ${reservation.subject || syllabus.name}`,
-          subject: reservation.subject || syllabus.name,
+          title: `Clase ${index + 1}: ${syllabus.name}`,
+          subject: syllabus.name,
           duration,
           date,
           startTime: start,
@@ -2692,6 +2710,9 @@ if (refs.planGeneratorForm) {
     }
     if (event.target.matches('[data-class-reservation-start], [data-class-reservation-duration]')) {
       updateClassReservationEnd(event.target.closest('[data-class-reservation-row]'));
+    }
+    if (event.target.matches('[data-class-reservation-recurring]')) {
+      updateClassReservationRecurrence(event.target.closest('[data-class-reservation-row]'));
     }
     saveGeneratorSettings();
   });

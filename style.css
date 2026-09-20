@@ -764,7 +764,6 @@ button { cursor: pointer; }
 .class-reservations { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 6px; padding: 8px; border: 1px dashed var(--line); border-radius: 10px; background: rgba(61,124,120,0.045); }
 .class-reservations > strong { color: var(--text); font-size: 0.72rem; }
 .class-reservation-row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; align-items: end; }
-.class-reservation-row > label:first-child,
 .class-reservation-row > span { grid-column: 1 / -1; }
 .class-reservation-row label { display: flex; flex-direction: column; gap: 4px; color: var(--muted); font-size: 0.68rem; font-weight: 700; }
 .class-reservation-row select,
