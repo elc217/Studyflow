@@ -1997,7 +1997,7 @@ function subtractReservedIntervals(windows, reservedIntervals) {
 }
 
 function getStudyWindowsForDate(date, options) {
-  return subtractReservedIntervals(getAvailabilityWindowsForDate(date, options), getReservedIntervalsForDate(date, options));
+  return getAvailabilityWindowsForDate(date, options);
 }
 
 function getDateCapacity(date, options) {
