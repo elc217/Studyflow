@@ -548,6 +548,14 @@ function setPendingConfirmationEmail(email) {
   refs.resendConfirmationButton.hidden = !email;
 }
 
+function withRequestTimeout(request, timeoutMs = 15000) {
+  let timeoutId;
+  const timeout = new Promise((_, reject) => {
+    timeoutId = window.setTimeout(() => reject(new Error('La conexión con el servicio ha tardado demasiado. Inténtalo de nuevo.')), timeoutMs);
+  });
+  return Promise.race([request, timeout]).finally(() => window.clearTimeout(timeoutId));
+}
+
 async function resendConfirmationEmail() {
   const email = sessionStorage.getItem('studyflow-pending-confirmation-email') || refs.authEmail.value.trim();
   if (!email) {
@@ -613,28 +621,34 @@ async function handleAuthSubmit(event) {
   const method = refs.authForm.dataset.mode || 'login';
   refs.authSubmit.disabled = true;
   setAuthMessage('Conectando...');
-  const result = method === 'signup'
-    ? await supabaseClient.auth.signUp({ email, password, options: { emailRedirectTo: getEmailRedirectUrl() } })
-    : await supabaseClient.auth.signInWithPassword({ email, password });
-  refs.authSubmit.disabled = false;
-  if (result.error) {
-    setAuthMessage(result.error.message, true);
-    return;
+  try {
+    const result = await withRequestTimeout(method === 'signup'
+      ? supabaseClient.auth.signUp({ email, password, options: { emailRedirectTo: getEmailRedirectUrl() } })
+      : supabaseClient.auth.signInWithPassword({ email, password }));
+    if (result.error) {
+      setAuthMessage(result.error.message, true);
+      return;
+    }
+    if (method === 'signup' && !result.data.session) {
+      setPendingConfirmationEmail(email);
+      const { error: resendError } = await withRequestTimeout(supabaseClient.auth.resend({
+        type: 'signup',
+        email,
+        options: { emailRedirectTo: getEmailRedirectUrl() },
+      }));
+      setAuthMessage(resendError
+        ? `La cuenta requiere comprobación, pero no se pudo reenviar el email: ${resendError.message}`
+        : 'La cuenta requiere comprobación. Hemos enviado un nuevo email; revisa también la carpeta de correo no deseado.', Boolean(resendError));
+      return;
+    }
+    setPendingConfirmationEmail('');
+    await initializeAuthenticatedApp(result.data.session?.user || result.data.user);
+  } catch (error) {
+    console.error('No se pudo completar la autenticación:', error);
+    setAuthMessage(error.message || 'No se pudo conectar. Comprueba tu conexión e inténtalo de nuevo.', true);
+  } finally {
+    refs.authSubmit.disabled = false;
   }
-  if (method === 'signup' && !result.data.session) {
-    setPendingConfirmationEmail(email);
-    const { error: resendError } = await supabaseClient.auth.resend({
-      type: 'signup',
-      email,
-      options: { emailRedirectTo: getEmailRedirectUrl() },
-    });
-    setAuthMessage(resendError
-      ? `La cuenta requiere comprobación, pero no se pudo reenviar el email: ${resendError.message}`
-      : 'La cuenta requiere comprobación. Hemos enviado un nuevo email; revisa también la carpeta de correo no deseado.', Boolean(resendError));
-    return;
-  }
-  setPendingConfirmationEmail('');
-  await initializeAuthenticatedApp(result.data.session?.user || result.data.user);
 }
 
 async function initializeAuthenticatedApp(user) {
