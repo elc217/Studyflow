@@ -416,6 +416,18 @@ async function loadAdminConfirmationStatuses() {
   });
 }
 
+async function getFunctionErrorMessage(error, data) {
+  if (data?.error) return data.error;
+  if (!error) return '';
+  try {
+    const body = await error.context?.clone().json();
+    if (body?.error) return body.error;
+  } catch (parseError) {
+    console.warn('No se pudo leer el detalle de la función:', parseError);
+  }
+  return error.message || 'La función administrativa no pudo completar la operación.';
+}
+
 function renderAdminUsers() {
   const search = refs.adminUserSearch.value.trim().toLowerCase();
   const status = refs.adminStatusFilter.value;
@@ -495,7 +507,7 @@ async function confirmAdminUser(user, row) {
     body: { action: 'confirm_user', userId: user.id },
   });
   button.disabled = false;
-  const message = error?.message || data?.error;
+  const message = await getFunctionErrorMessage(error, data);
   refs.adminMessage.textContent = message ? `No se pudo confirmar: ${message}` : 'Usuario confirmado manualmente.';
   refs.adminMessage.classList.toggle('error', Boolean(message));
   if (!message) await loadAdminSummary();
@@ -528,7 +540,7 @@ async function createAdminUser(event) {
     body: { action: 'create_user', email, password, displayName },
   });
   refs.adminCreateUserButton.disabled = false;
-  const message = error?.message || data?.error;
+  const message = await getFunctionErrorMessage(error, data);
   refs.adminMessage.textContent = message
     ? `No se pudo crear el usuario: ${message}`
     : `Usuario creado para ${data.email}. Deberá cambiar su contraseña al acceder.`;
