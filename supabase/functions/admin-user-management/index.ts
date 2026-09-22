@@ -14,30 +14,31 @@ function json(body: unknown, status = 200) {
 }
 
 Deno.serve(async (request) => {
-  if (request.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
-  if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
+  try {
+    if (request.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
+    if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
 
-  const supabaseUrl = Deno.env.get('SUPABASE_URL');
-  const anonKey = Deno.env.get('SUPABASE_ANON_KEY');
-  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-  const authorization = request.headers.get('Authorization');
-  if (!supabaseUrl || !anonKey || !serviceRoleKey || !authorization) return json({ error: 'Unauthorized' }, 401);
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const anonKey = Deno.env.get('SUPABASE_ANON_KEY');
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    const authorization = request.headers.get('Authorization');
+    if (!supabaseUrl || !anonKey || !serviceRoleKey || !authorization) return json({ error: 'Unauthorized' }, 401);
 
-  const callerClient = createClient(supabaseUrl, anonKey, {
-    global: { headers: { Authorization: authorization } },
-  });
-  const { data: { user }, error: userError } = await callerClient.auth.getUser();
-  if (userError || !user) return json({ error: 'Unauthorized' }, 401);
+    const callerClient = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: authorization } },
+    });
+    const { data: { user }, error: userError } = await callerClient.auth.getUser();
+    if (userError || !user) return json({ error: 'Unauthorized' }, 401);
 
-  const { data: profile, error: profileError } = await callerClient
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .maybeSingle();
-  if (profileError || profile?.role !== 'admin') return json({ error: 'Forbidden' }, 403);
+    const { data: profile, error: profileError } = await callerClient
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .maybeSingle();
+    if (profileError || profile?.role !== 'admin') return json({ error: 'Forbidden' }, 403);
 
-  const { action, userId, email, password, displayName } = await request.json();
-  const adminClient = createClient(supabaseUrl, serviceRoleKey);
+    const { action, userId, email, password, displayName } = await request.json();
+    const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
   if (action === 'list_confirmation_status') {
     const users = [];
@@ -93,5 +94,10 @@ Deno.serve(async (request) => {
     return json({ id: data.user.id, email: normalizedEmail });
   }
 
-  return json({ error: 'Invalid action' }, 400);
+    return json({ error: 'Invalid action' }, 400);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Error interno no identificado.';
+    console.error('Error en admin-user-management:', error);
+    return json({ error: `Error interno de administración: ${message}` }, 500);
+  }
 });

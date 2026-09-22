@@ -428,6 +428,23 @@ async function getFunctionErrorMessage(error, data) {
   return error.message || 'La función administrativa no pudo completar la operación.';
 }
 
+async function invokeAdminFunction(body) {
+  const { data: sessionData, error: sessionError } = await supabaseClient.auth.getSession();
+  if (sessionError || !sessionData.session) throw new Error('Tu sesión de administrador ha caducado. Inicia sesión de nuevo.');
+  const response = await fetch(`${SUPABASE_URL}/functions/v1/admin-user-management`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${sessionData.session.access_token}`,
+      apikey: SUPABASE_ANON_KEY,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error || `La función administrativa respondió con el estado ${response.status}.`);
+  return data;
+}
+
 function renderAdminUsers() {
   const search = refs.adminUserSearch.value.trim().toLowerCase();
   const status = refs.adminStatusFilter.value;
@@ -536,11 +553,15 @@ async function createAdminUser(event) {
     return;
   }
   refs.adminCreateUserButton.disabled = true;
-  const { data, error } = await supabaseClient.functions.invoke('admin-user-management', {
-    body: { action: 'create_user', email, password, displayName },
-  });
-  refs.adminCreateUserButton.disabled = false;
-  const message = await getFunctionErrorMessage(error, data);
+  let data;
+  let message = '';
+  try {
+    data = await invokeAdminFunction({ action: 'create_user', email, password, displayName });
+  } catch (error) {
+    message = error.message || 'No se pudo completar la creación del usuario.';
+  } finally {
+    refs.adminCreateUserButton.disabled = false;
+  }
   refs.adminMessage.textContent = message
     ? `No se pudo crear el usuario: ${message}`
     : `Usuario creado para ${data.email}. Deberá cambiar su contraseña al acceder.`;
