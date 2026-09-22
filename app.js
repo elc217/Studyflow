@@ -335,10 +335,16 @@ async function loadRemoteData() {
 
 async function loadCurrentProfile() {
   if (!currentUser || !supabaseClient) return;
-  const { data, error } = await supabaseClient.from('profiles').select('display_name, role, status, plan, must_change_password').eq('id', currentUser.id).maybeSingle();
+  let { data, error } = await supabaseClient.from('profiles').select('display_name, role, status, plan, must_change_password').eq('id', currentUser.id).maybeSingle();
+  if (error?.code === 'PGRST204' || error?.message?.includes('must_change_password')) {
+    const fallback = await supabaseClient.from('profiles').select('display_name, role, plan').eq('id', currentUser.id).maybeSingle();
+    data = fallback.data ? { ...fallback.data, status: 'active', must_change_password: false } : fallback.data;
+    error = fallback.error;
+  }
   if (error) {
     console.warn('No se pudo cargar el perfil:', error.message);
-    return;
+    setAuthMessage(`No se pudo cargar tu perfil: ${error.message}`, true);
+    return false;
   }
   currentProfile = data;
   if (data?.status === 'suspended') {
@@ -635,7 +641,7 @@ async function handleAuthSubmit(event) {
       return;
     }
     setPendingConfirmationEmail('');
-    await initializeAuthenticatedApp(result.data.session?.user || result.data.user);
+    await withRequestTimeout(initializeAuthenticatedApp(result.data.session?.user || result.data.user));
   } catch (error) {
     console.error('No se pudo completar la autenticación:', error);
     setAuthMessage(error.message || 'No se pudo conectar. Comprueba tu conexión e inténtalo de nuevo.', true);
