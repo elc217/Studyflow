@@ -118,6 +118,8 @@ supabase functions deploy admin-user-management
 
 La función usa las variables gestionadas por Supabase `SUPABASE_URL`, `SUPABASE_ANON_KEY` y `SUPABASE_SERVICE_ROLE_KEY`, valida la sesión y exige el rol `admin` antes de consultar o modificar una cuenta. No copies una `service_role` al frontend.
 
+Antes de usar **Añadir usuario**, ejecuta de nuevo `supabase-admin-migration.sql` en Supabase SQL Editor y despliega la función. El administrador puede crear una cuenta con contraseña provisional; la cuenta queda confirmada y el usuario debe cambiar esa contraseña en su primer acceso antes de ver la aplicación.
+
 La aplicacion identifica los datos mediante `auth.uid()` y las politicas RLS impiden que un usuario consulte o modifique los datos de otro.
 
 ## Datos y privacidad

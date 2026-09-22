@@ -75,6 +75,7 @@ create table if not exists public.profiles (
   display_name text,
   role text not null default 'user' check (role in ('user', 'admin')),
   plan text not null default 'free' check (plan in ('free', 'paid', 'trial')),
+  must_change_password boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -162,6 +163,21 @@ drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
+
+create or replace function public.clear_password_change_requirement()
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  update public.profiles
+  set must_change_password = false, updated_at = now()
+  where id = auth.uid();
+end;
+$$;
+
+grant execute on function public.clear_password_change_requirement() to authenticated;
 
 -- Tras ejecutar este esquema, convierte tu cuenta en administradora sustituyendo el email.
 -- update public.profiles set role = 'admin' where id = (select id from auth.users where email = 'TU_EMAIL');

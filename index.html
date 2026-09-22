@@ -543,6 +543,21 @@
           <article class="admin-stat"><span>Actividad registrada</span><strong id="adminActivityCount">--</strong></article>
         </div>
         <p id="adminMessage" class="auth-message">Gestiona usuarios y planes desde este panel.</p>
+        <form id="adminCreateUserForm" class="admin-create-form">
+          <div class="field-group">
+            <label for="adminNewUserName">Nombre</label>
+            <input id="adminNewUserName" type="text" autocomplete="name" placeholder="Nombre del usuario" />
+          </div>
+          <div class="field-group">
+            <label for="adminNewUserEmail">Email</label>
+            <input id="adminNewUserEmail" type="email" autocomplete="email" placeholder="usuario@ejemplo.com" required />
+          </div>
+          <div class="field-group">
+            <label for="adminNewUserPassword">Contraseña provisional</label>
+            <input id="adminNewUserPassword" type="password" autocomplete="new-password" minlength="10" required />
+          </div>
+          <button id="adminCreateUserButton" class="primary-btn small" type="submit">Añadir usuario</button>
+        </form>
         <div class="admin-toolbar">
           <input id="adminUserSearch" class="admin-search" type="search" placeholder="Buscar usuario por email o nombre" />
           <select id="adminStatusFilter" class="admin-filter"><option value="all">Todos los estados</option><option value="active">Activos</option><option value="suspended">Suspendidos</option></select>

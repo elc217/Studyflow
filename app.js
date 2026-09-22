@@ -233,6 +233,11 @@ const refs = {
   adminActivityCount: document.querySelector('#adminActivityCount'),
   adminUsersList: document.querySelector('#adminUsersList'),
   adminMessage: document.querySelector('#adminMessage'),
+  adminCreateUserForm: document.querySelector('#adminCreateUserForm'),
+  adminNewUserName: document.querySelector('#adminNewUserName'),
+  adminNewUserEmail: document.querySelector('#adminNewUserEmail'),
+  adminNewUserPassword: document.querySelector('#adminNewUserPassword'),
+  adminCreateUserButton: document.querySelector('#adminCreateUserButton'),
   reviewConfirmationsButton: document.querySelector('#reviewConfirmationsButton'),
   refreshAdminButton: document.querySelector('#refreshAdminButton'),
   adminUserSearch: document.querySelector('#adminUserSearch'),
@@ -330,7 +335,7 @@ async function loadRemoteData() {
 
 async function loadCurrentProfile() {
   if (!currentUser || !supabaseClient) return;
-  const { data, error } = await supabaseClient.from('profiles').select('display_name, role, status, plan').eq('id', currentUser.id).maybeSingle();
+  const { data, error } = await supabaseClient.from('profiles').select('display_name, role, status, plan, must_change_password').eq('id', currentUser.id).maybeSingle();
   if (error) {
     console.warn('No se pudo cargar el perfil:', error.message);
     return;
@@ -339,6 +344,10 @@ async function loadCurrentProfile() {
   if (data?.status === 'suspended') {
     await supabaseClient.auth.signOut();
     setAuthMessage('Esta cuenta está suspendida. Contacta con administración.', true);
+    return false;
+  }
+  if (data?.must_change_password) {
+    showPasswordRecovery('Debes cambiar la contraseña provisional antes de acceder.');
     return false;
   }
   const isAdmin = data?.role === 'admin';
@@ -498,6 +507,32 @@ async function resetAdminUserPassword(user, row) {
   refs.adminMessage.classList.toggle('error', Boolean(error));
 }
 
+async function createAdminUser(event) {
+  event.preventDefault();
+  const email = refs.adminNewUserEmail.value.trim().toLowerCase();
+  const password = refs.adminNewUserPassword.value;
+  const displayName = refs.adminNewUserName.value.trim();
+  if (password.length < 10) {
+    refs.adminMessage.textContent = 'La contraseña provisional debe tener al menos 10 caracteres.';
+    refs.adminMessage.classList.add('error');
+    return;
+  }
+  refs.adminCreateUserButton.disabled = true;
+  const { data, error } = await supabaseClient.functions.invoke('admin-user-management', {
+    body: { action: 'create_user', email, password, displayName },
+  });
+  refs.adminCreateUserButton.disabled = false;
+  const message = error?.message || data?.error;
+  refs.adminMessage.textContent = message
+    ? `No se pudo crear el usuario: ${message}`
+    : `Usuario creado para ${data.email}. Deberá cambiar su contraseña al acceder.`;
+  refs.adminMessage.classList.toggle('error', Boolean(message));
+  if (!message) {
+    refs.adminCreateUserForm.reset();
+    await loadAdminSummary();
+  }
+}
+
 function setAuthMessage(message, isError = false) {
   refs.authMessage.textContent = message;
   refs.authMessage.classList.toggle('error', isError);
@@ -532,11 +567,13 @@ async function resendConfirmationEmail() {
     : 'Email reenviado. Revisa también la carpeta de correo no deseado.', Boolean(error));
 }
 
-function showPasswordRecovery() {
+function showPasswordRecovery(message = '') {
   document.querySelector('.app-shell').hidden = true;
   refs.authPanel.hidden = false;
   refs.authForm.hidden = true;
   refs.passwordRecoveryForm.hidden = false;
+  refs.passwordRecoveryMessage.textContent = message;
+  refs.passwordRecoveryMessage.classList.remove('error');
 }
 
 async function handlePasswordRecovery(event) {
@@ -555,6 +592,12 @@ async function handlePasswordRecovery(event) {
     refs.passwordRecoveryMessage.classList.add('error');
     return;
   }
+  const { error: profileError } = await supabaseClient.rpc('clear_password_change_requirement');
+  if (profileError) {
+    refs.passwordRecoveryMessage.textContent = `Contraseña actualizada, pero no se pudo desbloquear el acceso: ${profileError.message}`;
+    refs.passwordRecoveryMessage.classList.add('error');
+    return;
+  }
   refs.passwordRecoveryMessage.textContent = 'Contraseña actualizada. Ya puedes iniciar sesión.';
   refs.passwordRecoveryMessage.classList.remove('error');
   await supabaseClient.auth.signOut();
@@ -565,7 +608,7 @@ async function handlePasswordRecovery(event) {
 
 async function handleAuthSubmit(event) {
   event.preventDefault();
-  const email = refs.authEmail.value.trim();
+  const email = refs.authEmail.value.trim().toLowerCase();
   const password = refs.authPassword.value;
   const method = refs.authForm.dataset.mode || 'login';
   refs.authSubmit.disabled = true;
@@ -580,7 +623,14 @@ async function handleAuthSubmit(event) {
   }
   if (method === 'signup' && !result.data.session) {
     setPendingConfirmationEmail(email);
-    setAuthMessage('Cuenta creada. Revisa tu email para confirmar el acceso; puedes solicitar otro envío si no llega.');
+    const { error: resendError } = await supabaseClient.auth.resend({
+      type: 'signup',
+      email,
+      options: { emailRedirectTo: getEmailRedirectUrl() },
+    });
+    setAuthMessage(resendError
+      ? `La cuenta requiere comprobación, pero no se pudo reenviar el email: ${resendError.message}`
+      : 'La cuenta requiere comprobación. Hemos enviado un nuevo email; revisa también la carpeta de correo no deseado.', Boolean(resendError));
     return;
   }
   setPendingConfirmationEmail('');
@@ -3102,6 +3152,7 @@ if (refs.adminButton) refs.adminButton.addEventListener('click', async () => {
 });
 if (refs.refreshAdminButton) refs.refreshAdminButton.addEventListener('click', loadAdminSummary);
 if (refs.reviewConfirmationsButton) refs.reviewConfirmationsButton.addEventListener('click', loadAdminSummary);
+if (refs.adminCreateUserForm) refs.adminCreateUserForm.addEventListener('submit', createAdminUser);
 if (refs.adminUserSearch) refs.adminUserSearch.addEventListener('input', renderAdminUsers);
 if (refs.adminStatusFilter) refs.adminStatusFilter.addEventListener('change', renderAdminUsers);
 if (refs.adminPlanFilter) refs.adminPlanFilter.addEventListener('change', renderAdminUsers);

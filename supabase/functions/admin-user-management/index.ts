@@ -36,7 +36,7 @@ Deno.serve(async (request) => {
     .maybeSingle();
   if (profileError || profile?.role !== 'admin') return json({ error: 'Forbidden' }, 403);
 
-  const { action, userId } = await request.json();
+  const { action, userId, email, password, displayName } = await request.json();
   const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
   if (action === 'list_confirmation_status') {
@@ -61,6 +61,36 @@ Deno.serve(async (request) => {
     const { error } = await adminClient.auth.admin.updateUserById(userId, { email_confirm: true });
     if (error) return json({ error: error.message }, 500);
     return json({ ok: true });
+  }
+
+  if (action === 'create_user') {
+    const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+    const temporaryPassword = typeof password === 'string' ? password : '';
+    const normalizedDisplayName = typeof displayName === 'string' ? displayName.trim() : '';
+    if (!/^\S+@\S+\.\S+$/.test(normalizedEmail)) return json({ error: 'Indica un email válido.' }, 400);
+    if (temporaryPassword.length < 10) return json({ error: 'La contraseña provisional debe tener al menos 10 caracteres.' }, 400);
+
+    const { data, error } = await adminClient.auth.admin.createUser({
+      email: normalizedEmail,
+      password: temporaryPassword,
+      email_confirm: true,
+      user_metadata: normalizedDisplayName ? { full_name: normalizedDisplayName } : {},
+    });
+    if (error || !data.user) return json({ error: error?.message || 'No se pudo crear la cuenta.' }, 500);
+
+    const { error: profileUpdateError } = await adminClient
+      .from('profiles')
+      .update({
+        display_name: normalizedDisplayName || null,
+        must_change_password: true,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', data.user.id);
+    if (profileUpdateError) {
+      await adminClient.auth.admin.deleteUser(data.user.id);
+      return json({ error: profileUpdateError.message }, 500);
+    }
+    return json({ id: data.user.id, email: normalizedEmail });
   }
 
   return json({ error: 'Invalid action' }, 400);
