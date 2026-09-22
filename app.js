@@ -631,14 +631,7 @@ async function handleAuthSubmit(event) {
     }
     if (method === 'signup' && !result.data.session) {
       setPendingConfirmationEmail(email);
-      const { error: resendError } = await withRequestTimeout(supabaseClient.auth.resend({
-        type: 'signup',
-        email,
-        options: { emailRedirectTo: getEmailRedirectUrl() },
-      }));
-      setAuthMessage(resendError
-        ? `La cuenta requiere comprobación, pero no se pudo reenviar el email: ${resendError.message}`
-        : 'La cuenta requiere comprobación. Hemos enviado un nuevo email; revisa también la carpeta de correo no deseado.', Boolean(resendError));
+      setAuthMessage('Cuenta creada. Hemos enviado el email de comprobación; revisa también la carpeta de correo no deseado.');
       return;
     }
     setPendingConfirmationEmail('');
