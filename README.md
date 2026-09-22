@@ -103,7 +103,20 @@ GitHub generara una URL publica para la aplicacion.
   Si ya tenías la base de datos creada, ejecuta también `supabase-admin-migration.sql` para añadir las columnas de trazabilidad.
 3. Comprueba que aparecen las tablas `tasks`, `tests` y `notes`.
 4. La aplicacion usa la clave publica `publishable` en el navegador. No introduzcas nunca una clave `service_role` en el frontend.
-5. Activa la confirmacion por email en **Authentication > Providers > Email** si quieres verificar las cuentas antes del primer acceso.
+5. En **Authentication > Providers > Email**, activa **Confirm email**. Esto hace que Supabase cree la cuenta sin abrir una sesión hasta que el usuario pulse el enlace recibido.
+6. En **Authentication > URL Configuration**, añade la URL pública exacta de la aplicación en **Site URL** y en **Redirect URLs**. Por ejemplo: `https://TU_USUARIO.github.io/TU_REPOSITORIO/`. La aplicación envía esa misma URL como retorno al registrar y al reenviar la comprobación.
+7. En **Project Settings > Auth > SMTP**, configura un proveedor SMTP de producción con un remitente y dominio verificados. El servicio de correo predeterminado de Supabase está limitado y no debe usarse para una aplicación publicada. Envía una prueba desde esa pantalla y revisa el registro de **Authentication > Logs** si no se entrega.
+8. Para comprobar el circuito completo, registra una dirección nueva, usa **Reenviar email de comprobación** si es necesario y confirma que el enlace vuelve a la URL pública configurada. Revisa también la carpeta de correo no deseado.
+
+El panel de administración permite buscar y filtrar usuarios, cambiar rol, plan y estado de acceso, eliminar cuentas, exportar el listado a CSV, detectar emails pendientes de comprobación, reenviar la comprobación, confirmarla manualmente y enviar enlaces de restablecimiento de contraseña.
+
+Para las acciones de comprobación manual, despliega la Edge Function incluida sin exponer credenciales en el navegador:
+
+```bash
+supabase functions deploy admin-user-management
+```
+
+La función usa las variables gestionadas por Supabase `SUPABASE_URL`, `SUPABASE_ANON_KEY` y `SUPABASE_SERVICE_ROLE_KEY`, valida la sesión y exige el rol `admin` antes de consultar o modificar una cuenta. No copies una `service_role` al frontend.
 
 La aplicacion identifica los datos mediante `auth.uid()` y las politicas RLS impiden que un usuario consulte o modifique los datos de otro.
 

@@ -16,6 +16,7 @@ const supabaseClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_ANON
 let currentUser = null;
 let currentProfile = null;
 let adminUsers = [];
+let adminConfirmationStatusAvailable = false;
 
 function formatDate(date) {
   const year = date.getFullYear();
@@ -210,7 +211,13 @@ const refs = {
   authPassword: document.querySelector('#authPassword'),
   authSubmit: document.querySelector('#authSubmit'),
   authToggle: document.querySelector('#authToggle'),
+  resendConfirmationButton: document.querySelector('#resendConfirmationButton'),
   authMessage: document.querySelector('#authMessage'),
+  passwordRecoveryForm: document.querySelector('#passwordRecoveryForm'),
+  newPassword: document.querySelector('#newPassword'),
+  newPasswordConfirmation: document.querySelector('#newPasswordConfirmation'),
+  passwordRecoverySubmit: document.querySelector('#passwordRecoverySubmit'),
+  passwordRecoveryMessage: document.querySelector('#passwordRecoveryMessage'),
   userEmail: document.querySelector('#userEmail'),
   signOutButton: document.querySelector('#signOutButton'),
   signOutSidebarButton: document.querySelector('#signOutSidebarButton'),
@@ -219,9 +226,14 @@ const refs = {
   manualPanel: document.querySelector('#manualPanel'),
   adminPanel: document.querySelector('#adminPanel'),
   adminUserCount: document.querySelector('#adminUserCount'),
+  adminActiveUserCount: document.querySelector('#adminActiveUserCount'),
+  adminSuspendedUserCount: document.querySelector('#adminSuspendedUserCount'),
+  adminPaidUserCount: document.querySelector('#adminPaidUserCount'),
+  adminPendingConfirmationCount: document.querySelector('#adminPendingConfirmationCount'),
   adminActivityCount: document.querySelector('#adminActivityCount'),
   adminUsersList: document.querySelector('#adminUsersList'),
   adminMessage: document.querySelector('#adminMessage'),
+  reviewConfirmationsButton: document.querySelector('#reviewConfirmationsButton'),
   refreshAdminButton: document.querySelector('#refreshAdminButton'),
   adminUserSearch: document.querySelector('#adminUserSearch'),
   adminStatusFilter: document.querySelector('#adminStatusFilter'),
@@ -351,10 +363,42 @@ async function loadAdminSummary() {
     return;
   }
   adminUsers = data || [];
+  try {
+    await loadAdminConfirmationStatuses();
+    adminConfirmationStatusAvailable = true;
+  } catch (confirmationError) {
+    adminConfirmationStatusAvailable = false;
+    console.warn('No se pudo consultar el estado de comprobación:', confirmationError.message);
+  }
   const users = adminUsers;
   refs.adminUserCount.textContent = users.length;
+  refs.adminActiveUserCount.textContent = users.filter((user) => user.status !== 'suspended').length;
+  refs.adminSuspendedUserCount.textContent = users.filter((user) => user.status === 'suspended').length;
+  refs.adminPaidUserCount.textContent = users.filter((user) => user.plan === 'paid').length;
+  refs.adminPendingConfirmationCount.textContent = adminConfirmationStatusAvailable
+    ? users.filter((user) => user.emailConfirmationStatus === 'pending').length
+    : '--';
   refs.adminActivityCount.textContent = users.reduce((sum, user) => sum + Number(user.activity_count || 0), 0);
+  refs.adminMessage.textContent = adminConfirmationStatusAvailable
+    ? 'Gestiona roles, planes, accesos y comprobaciones. Los cambios se aplican al guardar cada usuario.'
+    : 'Gestiona roles, planes y accesos. Despliega la función administrativa para revisar y confirmar emails.';
+  refs.adminMessage.classList.remove('error');
   renderAdminUsers();
+}
+
+async function loadAdminConfirmationStatuses() {
+  const { data, error } = await supabaseClient.functions.invoke('admin-user-management', {
+    body: { action: 'list_confirmation_status' },
+  });
+  if (error || data?.error) throw new Error(error?.message || data.error);
+  const statusByUserId = new Map((data.users || []).map((account) => [account.id, account]));
+  adminUsers = adminUsers.map((user) => {
+    const account = statusByUserId.get(user.id);
+    return {
+      ...user,
+      emailConfirmationStatus: !account ? 'unknown' : account.emailConfirmedAt ? 'confirmed' : 'pending',
+    };
+  });
 }
 
 function renderAdminUsers() {
@@ -368,12 +412,13 @@ function renderAdminUsers() {
   refs.adminUsersList.innerHTML = users.map((user) => `
     <tr data-admin-user-id="${user.id}">
       <td><strong>${user.display_name || 'Sin nombre'}</strong><small>${user.email || ''}</small></td>
+      <td><span class="status-pill ${user.emailConfirmationStatus === 'pending' ? 'pending' : ''}">${user.emailConfirmationStatus === 'confirmed' ? 'Confirmado' : user.emailConfirmationStatus === 'pending' ? 'Pendiente' : 'No disponible'}</span></td>
       <td><select data-admin-field="role"><option value="user" ${user.role === 'user' ? 'selected' : ''}>Usuario</option><option value="admin" ${user.role === 'admin' ? 'selected' : ''}>Admin</option></select></td>
       <td><select data-admin-field="plan"><option value="free" ${user.plan === 'free' ? 'selected' : ''}>Free</option><option value="trial" ${user.plan === 'trial' ? 'selected' : ''}>Prueba</option><option value="paid" ${user.plan === 'paid' ? 'selected' : ''}>Pago</option></select></td>
       <td><select data-admin-field="status"><option value="active" ${user.status !== 'suspended' ? 'selected' : ''}>Activo</option><option value="suspended" ${user.status === 'suspended' ? 'selected' : ''}>Suspendido</option></select></td>
       <td><small>Tareas: ${user.task_count || 0} · Tests: ${user.test_count || 0} · Errores: ${user.note_count || 0}</small></td>
       <td><small>${user.last_activity ? new Date(user.last_activity).toLocaleString('es-ES') : 'Sin actividad'}</small></td>
-      <td class="admin-actions"><button class="ghost-btn small" data-admin-action="save" type="button">Guardar</button><button class="ghost-btn small danger-btn" data-admin-action="delete" type="button">Eliminar</button></td>
+      <td class="admin-actions"><button class="ghost-btn small" data-admin-action="save" type="button">Guardar</button>${user.emailConfirmationStatus === 'pending' ? '<button class="ghost-btn small" data-admin-action="resend-confirmation" type="button">Reenviar</button><button class="ghost-btn small" data-admin-action="confirm" type="button">Confirmar</button>' : ''}<button class="ghost-btn small" data-admin-action="reset-password" type="button">Restablecer</button><button class="ghost-btn small danger-btn" data-admin-action="delete" type="button">Eliminar</button></td>
     </tr>
   `).join('');
 }
@@ -393,7 +438,10 @@ async function updateAdminUser(userId, row) {
   const role = row.querySelector('[data-admin-field="role"]').value;
   const plan = row.querySelector('[data-admin-field="plan"]').value;
   const status = row.querySelector('[data-admin-field="status"]').value;
+  const button = row.querySelector('[data-admin-action="save"]');
+  button.disabled = true;
   const { error } = await supabaseClient.rpc('admin_update_user', { target_user_id: userId, new_role: role, new_plan: plan, new_status: status });
+  button.disabled = false;
   refs.adminMessage.textContent = error ? `No se pudo actualizar: ${error.message}` : 'Usuario actualizado correctamente.';
   refs.adminMessage.classList.toggle('error', Boolean(error));
   if (!error) await loadAdminSummary();
@@ -402,15 +450,117 @@ async function updateAdminUser(userId, row) {
 async function deleteAdminUser(userId, row) {
   const email = row.querySelector('small')?.textContent || 'este usuario';
   if (!window.confirm(`¿Eliminar definitivamente a ${email}?`)) return;
+  const button = row.querySelector('[data-admin-action="delete"]');
+  button.disabled = true;
   const { error } = await supabaseClient.rpc('admin_delete_user', { target_user_id: userId });
+  button.disabled = false;
   refs.adminMessage.textContent = error ? `No se pudo eliminar: ${error.message}` : 'Usuario eliminado correctamente.';
   refs.adminMessage.classList.toggle('error', Boolean(error));
   if (!error) await loadAdminSummary();
 }
 
+async function resendAdminConfirmation(user, row) {
+  const button = row.querySelector('[data-admin-action="resend-confirmation"]');
+  button.disabled = true;
+  const { error } = await supabaseClient.auth.resend({
+    type: 'signup',
+    email: user.email,
+    options: { emailRedirectTo: getEmailRedirectUrl() },
+  });
+  button.disabled = false;
+  refs.adminMessage.textContent = error ? `No se pudo reenviar: ${error.message}` : `Email de comprobación reenviado a ${user.email}.`;
+  refs.adminMessage.classList.toggle('error', Boolean(error));
+}
+
+async function confirmAdminUser(user, row) {
+  if (!window.confirm(`¿Confirmar manualmente el email de ${user.email}?`)) return;
+  const button = row.querySelector('[data-admin-action="confirm"]');
+  button.disabled = true;
+  const { data, error } = await supabaseClient.functions.invoke('admin-user-management', {
+    body: { action: 'confirm_user', userId: user.id },
+  });
+  button.disabled = false;
+  const message = error?.message || data?.error;
+  refs.adminMessage.textContent = message ? `No se pudo confirmar: ${message}` : 'Usuario confirmado manualmente.';
+  refs.adminMessage.classList.toggle('error', Boolean(message));
+  if (!message) await loadAdminSummary();
+}
+
+async function resetAdminUserPassword(user, row) {
+  if (!window.confirm(`¿Enviar un enlace para restablecer la contraseña a ${user.email}?`)) return;
+  const button = row.querySelector('[data-admin-action="reset-password"]');
+  button.disabled = true;
+  const { error } = await supabaseClient.auth.resetPasswordForEmail(user.email, {
+    redirectTo: getEmailRedirectUrl(),
+  });
+  button.disabled = false;
+  refs.adminMessage.textContent = error ? `No se pudo enviar el restablecimiento: ${error.message}` : `Enlace de restablecimiento enviado a ${user.email}.`;
+  refs.adminMessage.classList.toggle('error', Boolean(error));
+}
+
 function setAuthMessage(message, isError = false) {
   refs.authMessage.textContent = message;
   refs.authMessage.classList.toggle('error', isError);
+}
+
+function getEmailRedirectUrl() {
+  if (!window.location.protocol.startsWith('http')) return undefined;
+  return `${window.location.origin}${window.location.pathname}`;
+}
+
+function setPendingConfirmationEmail(email) {
+  sessionStorage.setItem('studyflow-pending-confirmation-email', email);
+  refs.resendConfirmationButton.hidden = !email;
+}
+
+async function resendConfirmationEmail() {
+  const email = sessionStorage.getItem('studyflow-pending-confirmation-email') || refs.authEmail.value.trim();
+  if (!email) {
+    setAuthMessage('Indica el email de la cuenta para reenviar la comprobación.', true);
+    return;
+  }
+  refs.resendConfirmationButton.disabled = true;
+  setAuthMessage('Reenviando email de comprobación...');
+  const { error } = await supabaseClient.auth.resend({
+    type: 'signup',
+    email,
+    options: { emailRedirectTo: getEmailRedirectUrl() },
+  });
+  refs.resendConfirmationButton.disabled = false;
+  setAuthMessage(error
+    ? `No se pudo reenviar: ${error.message}`
+    : 'Email reenviado. Revisa también la carpeta de correo no deseado.', Boolean(error));
+}
+
+function showPasswordRecovery() {
+  document.querySelector('.app-shell').hidden = true;
+  refs.authPanel.hidden = false;
+  refs.authForm.hidden = true;
+  refs.passwordRecoveryForm.hidden = false;
+}
+
+async function handlePasswordRecovery(event) {
+  event.preventDefault();
+  const password = refs.newPassword.value;
+  if (password !== refs.newPasswordConfirmation.value) {
+    refs.passwordRecoveryMessage.textContent = 'Las contraseñas no coinciden.';
+    refs.passwordRecoveryMessage.classList.add('error');
+    return;
+  }
+  refs.passwordRecoverySubmit.disabled = true;
+  const { error } = await supabaseClient.auth.updateUser({ password });
+  refs.passwordRecoverySubmit.disabled = false;
+  if (error) {
+    refs.passwordRecoveryMessage.textContent = error.message;
+    refs.passwordRecoveryMessage.classList.add('error');
+    return;
+  }
+  refs.passwordRecoveryMessage.textContent = 'Contraseña actualizada. Ya puedes iniciar sesión.';
+  refs.passwordRecoveryMessage.classList.remove('error');
+  await supabaseClient.auth.signOut();
+  refs.passwordRecoveryForm.hidden = true;
+  refs.authForm.hidden = false;
+  window.history.replaceState({}, document.title, window.location.pathname);
 }
 
 async function handleAuthSubmit(event) {
@@ -421,7 +571,7 @@ async function handleAuthSubmit(event) {
   refs.authSubmit.disabled = true;
   setAuthMessage('Conectando...');
   const result = method === 'signup'
-    ? await supabaseClient.auth.signUp({ email, password })
+    ? await supabaseClient.auth.signUp({ email, password, options: { emailRedirectTo: getEmailRedirectUrl() } })
     : await supabaseClient.auth.signInWithPassword({ email, password });
   refs.authSubmit.disabled = false;
   if (result.error) {
@@ -429,9 +579,11 @@ async function handleAuthSubmit(event) {
     return;
   }
   if (method === 'signup' && !result.data.session) {
-    setAuthMessage('Cuenta creada. Revisa tu email para confirmar el acceso.');
+    setPendingConfirmationEmail(email);
+    setAuthMessage('Cuenta creada. Revisa tu email para confirmar el acceso; puedes solicitar otro envío si no llega.');
     return;
   }
+  setPendingConfirmationEmail('');
   await initializeAuthenticatedApp(result.data.session?.user || result.data.user);
 }
 
@@ -472,7 +624,14 @@ async function initializeAuth() {
     setAuthMessage('No se pudo cargar Supabase. Comprueba tu conexión.', true);
     return;
   }
+  supabaseClient.auth.onAuthStateChange((event) => {
+    if (event === 'PASSWORD_RECOVERY') showPasswordRecovery();
+  });
   const { data } = await supabaseClient.auth.getSession();
+  if (window.location.hash.includes('type=recovery')) {
+    showPasswordRecovery();
+    return;
+  }
   if (data.session?.user) {
     await initializeAuthenticatedApp(data.session.user);
     return;
@@ -2914,9 +3073,15 @@ if (refs.authToggle) {
     refs.authForm.dataset.mode = isSignup ? 'signup' : 'login';
     refs.authSubmit.textContent = isSignup ? 'Crear cuenta' : 'Iniciar sesión';
     refs.authToggle.textContent = isSignup ? 'Ya tengo una cuenta' : 'Crear cuenta';
+    refs.resendConfirmationButton.hidden = !sessionStorage.getItem('studyflow-pending-confirmation-email');
     setAuthMessage('');
   });
 }
+if (refs.resendConfirmationButton) {
+  refs.resendConfirmationButton.hidden = !sessionStorage.getItem('studyflow-pending-confirmation-email');
+  refs.resendConfirmationButton.addEventListener('click', resendConfirmationEmail);
+}
+if (refs.passwordRecoveryForm) refs.passwordRecoveryForm.addEventListener('submit', handlePasswordRecovery);
 async function signOut() {
   if (!supabaseClient) return;
   await supabaseClient.auth.signOut();
@@ -2936,6 +3101,7 @@ if (refs.adminButton) refs.adminButton.addEventListener('click', async () => {
   await loadAdminSummary();
 });
 if (refs.refreshAdminButton) refs.refreshAdminButton.addEventListener('click', loadAdminSummary);
+if (refs.reviewConfirmationsButton) refs.reviewConfirmationsButton.addEventListener('click', loadAdminSummary);
 if (refs.adminUserSearch) refs.adminUserSearch.addEventListener('input', renderAdminUsers);
 if (refs.adminStatusFilter) refs.adminStatusFilter.addEventListener('change', renderAdminUsers);
 if (refs.adminPlanFilter) refs.adminPlanFilter.addEventListener('change', renderAdminUsers);
@@ -2944,8 +3110,13 @@ if (refs.adminUsersList) refs.adminUsersList.addEventListener('click', async (ev
   const action = event.target.closest('[data-admin-action]');
   const row = event.target.closest('[data-admin-user-id]');
   if (!action || !row) return;
+  const user = adminUsers.find((item) => item.id === row.dataset.adminUserId);
+  if (!user) return;
   if (action.dataset.adminAction === 'save') await updateAdminUser(row.dataset.adminUserId, row);
   if (action.dataset.adminAction === 'delete') await deleteAdminUser(row.dataset.adminUserId, row);
+  if (action.dataset.adminAction === 'resend-confirmation') await resendAdminConfirmation(user, row);
+  if (action.dataset.adminAction === 'confirm') await confirmAdminUser(user, row);
+  if (action.dataset.adminAction === 'reset-password') await resetAdminUserPassword(user, row);
 });
 document.querySelectorAll('[data-close-modal]').forEach((button) => {
   button.addEventListener('click', () => closeModal(document.querySelector(`#${button.dataset.closeModal}`)));
