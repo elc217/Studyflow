@@ -12,6 +12,7 @@ function getUserStorageKey(key) {
 
 const SUPABASE_URL = 'https://ymlinhhriprtyhaamsrz.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_i4lrF89M1YcyFmkjY9s_JA_zLA7MMOC';
+const EMAIL_REDIRECT_URL = 'https://elc217.github.io/Studyflow/';
 const supabaseClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 let currentUser = null;
 let currentProfile = null;
@@ -578,8 +579,7 @@ function setAuthMessage(message, isError = false) {
 }
 
 function getEmailRedirectUrl() {
-  if (!window.location.protocol.startsWith('http')) return undefined;
-  return `${window.location.origin}${window.location.pathname}`;
+  return EMAIL_REDIRECT_URL;
 }
 
 function setPendingConfirmationEmail(email) {
